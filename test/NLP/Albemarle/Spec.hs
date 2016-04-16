@@ -8,18 +8,18 @@ import qualified Data.HashSet as HashSet
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 
-import qualified Tokens
-import qualified Dictionary
+import qualified NLP.Albemarle.Tokens as Tokens
+import qualified NLP.Albemarle.Dictionary as Dictionary
 
 
 main :: IO ()
 main = hspec $ do
   describe "Standard Tools" $ do
-    it "tokenizes correctly" $ do
+    it "tokenizes correctly" $
       Tokens.wordTokenize weight_gain `shouldBe` weight_gain_tokens
 
-    it "creates accurate dictionaries" $ do
-      Dictionary.count 2 0.5 100 little_docs `shouldBe` little_counts
+    it "creates accurate dictionaries" $
+      Dictionary.count 2 0.5 100 100 little_docs `shouldBe` little_counts
 
 
 

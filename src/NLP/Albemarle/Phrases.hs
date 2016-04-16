@@ -9,7 +9,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-import qualified NLP.Albemarle.Dictionary
+import qualified NLP.Albemarle.Dictionary as Dictionary
 
 -- ! Tokenize text according to the rule of leftmost longest from a set of
 -- ! permitted tokens.
@@ -44,5 +44,6 @@ extendModel dictionary target tokens@(next:rest) =
 -- ! It will only produce elements of the dictionary, plus one extra token.
 -- ! (as opposed to applyModel).
 generateModel :: [Text] -> HashMap Text Int
-generateModel tokens =
-  Dictionary
+generateModel = undefined
+--generateModel tokens =
+--  Dictionary.count

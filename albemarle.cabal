@@ -39,7 +39,7 @@ executable hstext-exe
 test-suite hstext-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Spec.hs
+  main-is:             NLP/Albemarle/Spec.hs
   build-depends:       base
                      , albemarle
                      , hspec
