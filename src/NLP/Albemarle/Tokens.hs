@@ -5,10 +5,10 @@ module NLP.Albemarle.Tokens
 import Data.Text (Text)
 import qualified Data.Text as Text
 
--- ! Tokenize text according to the best method available
+-- | Tokenize text according to the best method available
 wordTokenize :: Text -> [Text]
 wordTokenize = whitespaceTokenize
 
--- ! Tokenize strings idiotically, according to the whitespace
+-- | Tokenize strings idiotically, according to the whitespace
 whitespaceTokenize :: Text -> [Text]
 whitespaceTokenize = Text.words

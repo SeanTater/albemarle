@@ -1,30 +1,39 @@
 {-# LANGUAGE OverloadedStrings, NoImplicitPrelude #-}
+-- | This is an example.
+--   Yes, it is.
 module NLP.Albemarle.Dictionary
-    ( count
+    ( discover
+    , discoverAdv
     ) where
 import ClassyPrelude.Conduit
 import qualified Data.HashSet as HashSet
 import qualified Data.HashMap.Strict as HashMap
 
 -- | Convenience method: Create a dictionary using the default settings:
--- | Tokens must be found at least 5 times but not more than 50% of documents
--- | Documents are handled in blocks of 100 thousand.
--- | The minimum number of times a token must be found is increased by 1 every
--- | time the total number of filtered tokens reaches over 40 million.
-defaultCounts documents = count 5 0.5 100000 40000000
+--
+--   Tokens must be found at least 5 times but not more than 50% of documents
+--
+--   Documents are handled in blocks of 100 thousand.
+--
+--   The minimum number of times a token must be found is incrmented when the
+--   number of unique filtered tokens reaches over 40 million.
+discover :: [[Text]] -> HashMap Text Int
+discover = discoverAdv 5 0.5 100000 40000000
 
 -- | Create a simple dictionary as a HashMap, counting in how many documents
--- | each term can be found.
--- | Terms that are too rare or too common are removed.
--- | Example:
--- | count 5 0.5 100000 40000000 $ getTheTextsSomehow
--- | Means:
--- |   terms are in >= 5 instances (hepax threshold)
--- |   and <= 50% of documents     (stopword threshold)
--- |   in blocks of 100000         (thresholds apply to blocks individually)
--- |   incrementing the hepax threshold when the dictionary gets longer than 40M
-count :: Int -> Double -> Int -> Int -> [[Text]] -> HashMap Text Int
-count hepax stopword blocksize upper_limit documents =
+--   each term can be found.
+--   Terms that are too rare or too common are removed.
+--
+--   > count 5 0.5 100000 40000000 $ getTheTextsSomehow
+--
+--   Means that:
+--
+--     * terms are in >= 5 instances (hepax threshold)
+--     * in <= 50% of documents     (stopword threshold)
+--     * in blocks of 100000         (thresholds apply to blocks individually)
+--     * incrementing the hepax threshold when the dictionary gets longer than 40M
+discoverAdv :: Int -> Double -> Int -> Int -> [[Text]] -> HashMap Text Int
+discoverAdv hepax stopword blocksize upper_limit documents =
   sumDict $ -- Sum together all the blocks' useful words
   goldilocks <$> -- For each block: remove too rare and too common words
   sumDict <$>  -- For each block: merge the maps, which have (word -> doc count) relations
