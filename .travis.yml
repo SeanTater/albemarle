@@ -11,6 +11,7 @@ cache:
     - $HOME/.stack
 
 install:
+  - export BUILD=stack
   - sh .travis-setup.sh
 
 script:
