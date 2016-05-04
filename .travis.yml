@@ -1,7 +1,5 @@
 language: haskell
-ghc:
-  - 7.8
-  - 7.10
+ghc: '7.10'
 
 # This should make builds a tad faster
 cache:
