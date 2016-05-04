@@ -11,7 +11,7 @@ cache:
     - $HOME/.stack
 
 install:
-  - ./.travis-setup.sh
+  - sh .travis-setup.sh
 
 script:
   - stack --no-terminal test
