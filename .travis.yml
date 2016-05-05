@@ -1,0 +1,16 @@
+language: haskell
+ghc: '7.10'
+
+# This should make builds a tad faster
+cache:
+  directories:
+    - $HOME/.ghc
+    - $HOME/.cabal
+    - $HOME/.stack
+
+install:
+  - export BUILD=stack
+  - sh .travis-setup.sh
+
+script:
+  - stack --no-terminal test
