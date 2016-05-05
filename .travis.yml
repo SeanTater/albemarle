@@ -1,16 +1,14 @@
 language: haskell
 ghc: '7.10'
-
-# This should make builds a tad faster
 cache:
   directories:
-    - $HOME/.ghc
-    - $HOME/.cabal
-    - $HOME/.stack
-
+  - $HOME/.ghc
+  - $HOME/.cabal
+  - $HOME/.stack
 install:
-  - export BUILD=stack
-  - sh .travis-setup.sh
-
+- export BUILD=stack
+- sh .travis-setup.sh
 script:
-  - stack --no-terminal test
+- stack --no-terminal test
+dd:
+  secure: 01NWdJb5XGHXGOHzTiLu/gZ7Pz8KvZy7Rz6BakdsxDtxr7vaFXEa0EVUK37ImmicwD1+yeAZukjnRyl4iMNLA1nGPvJvY99J27FO4hOAPWUAfPQuMexAwnidnJuiSmEOeXwimuYwQRJJpiOR0NPvdI7gTzW7dQoOqIXn9gXkAFHGQGmugw5X7dWyNymDZ5SNHNPdJjkMcblTd1W0GklyamEatThyt/BtSRZbdN58HfF75Ji3EZbmLq9Q2wM/3obvnISr6ZghcoasruFKAF46nYr2vFg5QSkJzp5pwG9FBOIWpMBjsbgy9FIrV7IyQ96Ol6MZmT8lskug2Yxw3fikGWeQbQY4hYvQwW1oVxnG+jl1XkgV0obPnZG9J11roIm6dNxndKIhEMYXTKu/XmnTJ68N65EYk4RoCEKyMqvlh6NUsXzuqCSDAlWXTiJ6Sg+3AefAdNaG2pYeNbTA1/CBzQXmWZkP9su5gHyR0KsLxZY69tmGvhUCH5yb0ki8yUs06UGOUzCeKetp9HsobRsBtg4Au65/NlkGSe3h4hP3QRmXEVNCVnLBebps1M6/DN+Vcfd3ouUGtry8W4xDrD3LimHU3/4sX9+0Q7/boGbxwargFbPt3uLRzjbUc6TAuPQVNb4uzUokFOKxMB6T9o1jfB9QG4adnAkPiStOTqHIXlA=

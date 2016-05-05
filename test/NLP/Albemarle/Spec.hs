@@ -19,7 +19,7 @@ main = hspec $ do
       Tokens.wordTokenize weight_gain `shouldBe` weight_gain_tokens
 
     it "creates accurate dictionaries" $
-      Dictionary.discover 2 0.5 100 100 little_docs `shouldBe` little_counts
+      Dictionary.discoverAdv 2 0.5 100 100 little_docs `shouldBe` little_counts
 
 
 

@@ -15,9 +15,9 @@ import qualified NLP.Albemarle.Dictionary as Dictionary
 --
 --   This uses a HashMap (There may be room for improvement using Tries)
 --   It will only produce elements of the dictionary (as opposed to extendModel)
-use :: HashMap Text Int -> [Text] -> [Text]
-use dictionary [] = []
-use dictionary (first:rest) =
+useOne :: HashMap Text Int -> [Text] -> [Text]
+useOne dictionary [] = []
+useOne dictionary (first:rest) =
   useModel first rest
   where
     useModel target [] = [target | HashMap.member target dictionary]
@@ -28,15 +28,18 @@ use dictionary (first:rest) =
       where
         next_target = target ++ "_" ++ next
 
+use :: HashMap Text Int -> Conduit [Text] IO [Text]
+use dictionary = mapC $ useOne dictionary
+
 -- | Tokenize text according to the rule of leftmost longest from a set of
 --   permitted tokens.
 --
 --   This uses a HashMap (There may be room for improvement using Tries)
 --   It will only produce elements of the dictionary, plus one extra token.
 --   (as opposed to applyModel).
-extend :: HashMap Text Int -> [Text] -> [Text]
-extend dictionary [] = []
-extend dictionary (first:rest) =
+extendOne :: HashMap Text Int -> [Text] -> [Text]
+extendOne dictionary [] = []
+extendOne dictionary (first:rest) =
   extendModel first rest
   where
     extendModel target [] = [target | HashMap.member target dictionary]
@@ -47,17 +50,10 @@ extend dictionary (first:rest) =
       where
         next_target = target ++ "_" ++ next
 
-
-
-
 -- | Find phrases in text according to their frequency relative to those of ins
 --   constituents
-discover :: Int -> [Text] -> HashMap Text Int
-discover _ [] = mempty
-discover len tokens@(first:rest) =
-  discoverWithDict len
-  where
-    discoverWithDict len
-      | len <= 0    = mempty
-      | len == 1    = Dictionary.discover tokens
-      | otherwise   = Dictionary.discover $ extendModel (discoverWithDict (len-1)) first rest
+extend :: HashMap Text Int -> Conduit [Text] IO [Text]
+extend dictionary = mapC $ discoverOne dictionary
+
+discover :: HashMap Text Int -> HashMap Text Int -> HashMap Text Int
+discover previous_dict next_dict =
