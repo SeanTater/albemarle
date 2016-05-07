@@ -5,6 +5,8 @@ cache:
   - $HOME/.ghc
   - $HOME/.cabal
   - $HOME/.stack
+before_install:
+- openssl aes-256-cbc -K $encrypted_479505b7d9c0_key -iv $encrypted_479505b7d9c0_iv -in travisci-github-automation.enc -out travisci-github-automation -d
 install:
 - export BUILD=stack
 - sh .travis-setup.sh
