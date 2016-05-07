@@ -15,10 +15,10 @@ import qualified NLP.Albemarle.Dictionary as Dictionary
 main :: IO ()
 main = hspec $ do
   describe "Standard Tools" $ do
-    it "tokenizes correctly" $
+    it "#1 Tokenizes" $
       Tokens.wordTokenize weight_gain `shouldBe` weight_gain_tokens
 
-    it "creates accurate dictionaries" $
+    it "#3 Creates Dictionaries" $
       Dictionary.discoverAdv 2 0.5 100 100 little_docs `shouldBe` little_counts
 
 
