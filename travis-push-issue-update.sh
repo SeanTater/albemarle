@@ -4,7 +4,7 @@
 # Use the pages repo
 git config user.name "Sean Gallagher"
 git config user.email "stgallag@gmail.com"
-git clone --branch gh-pages https://SeanTater@github.com:SeanTater/albemarle.git gh-pages
+git clone --branch gh-pages https://SeanTater@github.com/SeanTater/albemarle.git gh-pages
 cd gh-pages
 
 # Get the Github issues
