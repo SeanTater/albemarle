@@ -3,11 +3,13 @@
 
 # Include the github ssh key
 cat >~/.ssh/config <<EOF
-Host server1.nixcraft.com
+Host github.com
   IdentityFile $PWD/travis-github-automation
 EOF
 
 # Use the pages repo
+git config user.name "Sean Gallagher"
+git config user.email "stgallag@gmail.com"
 git fetch SeanTater@github.com/SeanTater/albemarle.git gh-pages
 git checkout gh-pages
 
