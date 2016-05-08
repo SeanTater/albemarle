@@ -9,7 +9,7 @@ layout: default
   <h1>Progress</h1>
   <div class='targets'>
     {% for issue in site.data.issues %}
-      <div class='target {% case site.data.stacktest[issue] %}{% when "FAILED" %}failed{% when "" %}passed{% else %}missing{% endcase %}'>
+      <div class='target {% case site.data.stacktest[issue] %}{% when 'FAILED' %}failed{% when '' %}passed{% else %}missing{% endcase %}'>
         <h2> {{ issue.title }} </h2>
         <p> {{ issue.body | markdownify }}</p>
       </div>
