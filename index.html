@@ -9,7 +9,8 @@ layout: default
   <h1>Progress</h1>
   <div class='targets'>
     {% for issue in site.data.issues %}
-      <div class='target {% case site.data.stacktest[issue] %}{% when 'FAILED' %}failed{% when '' %}passed{% else %}missing{% endcase %}'>
+      {% assign status = site.data.stacktest[issue] || 'missing' %}
+      <div class='target {% case 'FAILED' %}{% when 'FAILED' %}failed{% when '' %}passed{% when 'missing' %}missing{% else %}broken{% endcase %}'>
         <h2> {{ issue.title }} </h2>
         <p> {{ issue.body | markdownify }}</p>
       </div>
@@ -17,8 +18,8 @@ layout: default
   </div>
 
 
-  <!-- We don't really have posts but I don't want to forget we can do this 
-  
+  <!-- We don't really have posts but I don't want to forget we can do this
+
   <h1 class="page-heading">Posts</h1>
   <ul class="post-list">
     {% for post in site.posts %}
