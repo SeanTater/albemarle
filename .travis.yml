@@ -1,17 +1,17 @@
 language: haskell
-ghc:
-- '7.8'
+ghc: '7.8'
 cache:
   directories:
   - $HOME/.ghc
   - $HOME/.cabal
   - $HOME/.stack
-before_install:
-- openssl aes-256-cbc -K $encrypted_479505b7d9c0_key -iv $encrypted_479505b7d9c0_iv -in travisci-github-automation.enc -out travisci-github-automation -d
 install:
 - export BUILD=stack
 - sh travis-setup.sh
 script:
-- set -o pipefail # Otherwise the pipe below will make it always pass
+- set -o pipefail
 - stack --no-terminal test | tee stacktest.log
 - sh travis-push-issue-update.sh
+env:
+  global:
+    secure: n/25tjC8aD0aMdKibIiovZiGYmgdcwQKczOm4fL0Q2HcGMfMP8m3M7xJHWIurn1r/gdUuBWOKMU5fn5tSzyEtmCYa13AZW1z56OQmP1Ag3FZIFc5i9y3FXJ4fF1zrYmAwmxxnogwuHrTJ1FOsyGcVJrz5g2h4/wL/UusyNyukJmBAobHcAfmUCSK3VoWVNVy6Wu3yIzhR1Uu85dLGoJ5FyMcDD8sF8sm+1dVMo5qfHk/qs+f3hM8pSjgQtbCIdag/uJd1GtbDG9sqIV6SRUiN2JvSKiLji/UvNrzgQxNhDR6yojw/Qi/t5WvyTQknrTp7fw2RYjTwYpFKA8t8fjeuhGle32V2t5XsW+g4+VLgX9SN7Qjb68/Dnu+Nu906fQ0K38TbRbEBJxX5UkxumbsQ1Cs82gK5VJxaKDEsfFaP0YE5d31P6cEQ95EocUDPNNXTj0/sTEg//sVgqxVTrnEXkizSjHAC2+hDbBYiPJ5jN9QA4/Bd5MazZETL37QpDoTDCPkgGCVEGWrEHWl4961mhKbP6aprXSnsVJRPfWxxiv6HFJ59V1VmUj9jgQkA0UatnpXGtqNbvZoUENJ42t2mSRnsUKNb4HKzgt2UR7+GtmhAzAAt3vCnFUkvvI7spJI3c+WTamV1WovTPGcmXzyiBCnT0YXAUY0aXNBVXyYpkI=
