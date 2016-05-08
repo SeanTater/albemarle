@@ -10,8 +10,8 @@ title: Albemarle
 email: stgallag@gmail.com
 description: > # this means to ignore newlines until "baseurl:"
   Semantic Search for Practical People
-baseurl: "" # the subpath of your site, e.g. /blog
-url: "http://seantater.github.io/albemarle" # the base hostname & protocol for your site
+baseurl: "/albemarle" # the subpath of your site, e.g. /blog
+url: "http://seantater.github.io" # the base hostname & protocol for your site
 #twitter_username: sean_tater
 github_username:  SeanTater
 
