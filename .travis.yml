@@ -11,5 +11,6 @@ install:
 - export BUILD=stack
 - sh travis-setup.sh
 script:
+- set -o pipefail # Otherwise the pipe below will make it always pass
 - stack --no-terminal test | tee stacktest.log
 - sh travis-push-issue-update.sh

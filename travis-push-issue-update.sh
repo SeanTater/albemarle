@@ -2,13 +2,17 @@
 # Update the website
 
 # Include the github ssh key
-ssh-add travis-github-automation
+cat >~/.ssh/config <<EOF
+Host server1.nixcraft.com
+  IdentityFile $PWD/travis-github-automation
+EOF
 
 # Use the pages repo
+git fetch gh-pages
 git checkout gh-pages
 
 # Get the Github issues
-curl -v -L -X GET \
+curl -svSLX GET \
   -H "Accept: application/vnd.github.v3+json" \
   -H "labels: target" \
   -H "creator: SeanTater" \
