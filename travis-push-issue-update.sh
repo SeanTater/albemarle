@@ -10,7 +10,7 @@ EOF
 # Use the pages repo
 git config user.name "Sean Gallagher"
 git config user.email "stgallag@gmail.com"
-git fetch SeanTater@github.com/SeanTater/albemarle.git gh-pages
+git fetch SeanTater@github.com:SeanTater/albemarle.git gh-pages
 git checkout gh-pages
 
 # Get the Github issues
