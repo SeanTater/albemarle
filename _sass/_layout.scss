@@ -1,0 +1,301 @@
+/**
+ * Site header
+ */
+.site-header {
+    background-image: url("img/blueprint.jpg");
+    // Positioning context for the mobile navigation icon
+    position: relative;
+}
+
+.headfoot-padding {
+    margin: 0 auto;
+    width: 80%;
+}
+
+.site-title {
+    font-family: "Architects Daughter", sans-serif;
+    font-size: 64px;
+    font-weight: 300;
+    line-height: 100px;
+    margin-bottom: 0;
+
+    &,
+    &:visited {
+        color: white;
+    }
+}
+
+.site-subtitle {
+  font-family: "Architects Daughter", sans-serif;
+  font-size: 28px;
+  line-height: 50px;
+  color: $grey-color-light;
+}
+
+.site-nav {
+    flex: 1;
+    padding: 0 0 0 1em;
+
+    a.button {
+        background-color: lighten($brand-color, 15%);
+        background: linear-gradient(
+          to bottom,
+          lighten($brand-color, 10%) 0%,
+          lighten($brand-color, 5%) 20%,
+          $brand-color 80%,
+          darken($brand-color, 10%) 100%);
+        border-radius: 10px;
+        box-shadow: gray 1px 1px 3px;
+        color: white;
+        display: block;
+        font-family: 'Architects Daughter', sans-serif;
+        font-size: large;
+        line-height: 30px;
+        padding: 0.5em;
+        margin: 1em 0;
+        text-align: center;
+        max-width: 60%;
+    }
+
+    .page-link {
+        color: $text-color;
+        line-height: $base-line-height;
+
+        // Gaps between nav items, but not on the last one
+        &:not(:last-child) {
+            margin-right: 20px;
+        }
+    }
+
+    @include media-query($on-palm) {
+        position: absolute;
+        top: 9px;
+        right: $spacing-unit / 2;
+        background-color: $background-color;
+        border: 1px solid $grey-color-light;
+        border-radius: 5px;
+        text-align: right;
+
+        .menu-icon {
+            display: block;
+            float: right;
+            width: 36px;
+            height: 26px;
+            line-height: 0;
+            padding-top: 10px;
+            text-align: center;
+
+            > svg {
+                width: 18px;
+                height: 15px;
+
+                path {
+                    fill: $grey-color-dark;
+                }
+            }
+        }
+
+        .trigger {
+            clear: both;
+            display: none;
+        }
+
+        &:hover .trigger {
+            display: block;
+            padding-bottom: 5px;
+        }
+
+        .page-link {
+            display: block;
+            padding: 5px 10px;
+
+            &:not(:last-child) {
+                margin-right: 0;
+            }
+            margin-left: 20px;
+        }
+    }
+}
+
+
+
+/**
+ * Site footer
+ */
+.site-footer {
+    border-top: 1px solid $grey-color-light;
+    padding: $spacing-unit 0;
+}
+
+.footer-heading {
+    font-size: 18px;
+    margin-bottom: $spacing-unit / 2;
+}
+
+.contact-list,
+.social-media-list {
+    list-style: none;
+    margin-left: 0;
+}
+
+.footer-col-wrapper {
+    font-size: 15px;
+    color: $grey-color;
+    margin-left: -$spacing-unit / 2;
+    @extend %clearfix;
+}
+
+.footer-col {
+    float: left;
+    margin-bottom: $spacing-unit / 2;
+    padding-left: $spacing-unit / 2;
+}
+
+.footer-col-1 {
+    width: -webkit-calc(35% - (#{$spacing-unit} / 2));
+    width:         calc(35% - (#{$spacing-unit} / 2));
+}
+
+.footer-col-2 {
+    width: -webkit-calc(20% - (#{$spacing-unit} / 2));
+    width:         calc(20% - (#{$spacing-unit} / 2));
+}
+
+.footer-col-3 {
+    width: -webkit-calc(45% - (#{$spacing-unit} / 2));
+    width:         calc(45% - (#{$spacing-unit} / 2));
+}
+
+@include media-query($on-laptop) {
+    .footer-col-1,
+    .footer-col-2 {
+        width: -webkit-calc(50% - (#{$spacing-unit} / 2));
+        width:         calc(50% - (#{$spacing-unit} / 2));
+    }
+
+    .footer-col-3 {
+        width: -webkit-calc(100% - (#{$spacing-unit} / 2));
+        width:         calc(100% - (#{$spacing-unit} / 2));
+    }
+}
+
+@include media-query($on-palm) {
+    .footer-col {
+        float: none;
+        width: -webkit-calc(100% - (#{$spacing-unit} / 2));
+        width:         calc(100% - (#{$spacing-unit} / 2));
+    }
+}
+
+
+
+/**
+ * Page content
+ */
+.page-content {
+    margin: 1em 0 1em auto;
+    width: 90%;
+    padding: $spacing-unit 0;
+    display:flex;
+}
+
+.page-heading {
+    font-size: 20px;
+}
+
+.post-list {
+    margin-left: 0;
+    list-style: none;
+
+    > li {
+        margin-bottom: $spacing-unit;
+    }
+}
+
+.post-meta {
+    font-size: $small-font-size;
+    color: $grey-color;
+}
+
+.post-link {
+    display: block;
+    font-size: 24px;
+}
+
+
+
+/**
+ * Posts
+ */
+.post-header {
+    margin-bottom: $spacing-unit;
+}
+
+.post-title {
+    font-size: 42px;
+    letter-spacing: -1px;
+    line-height: 1;
+
+    @include media-query($on-laptop) {
+        font-size: 36px;
+    }
+}
+
+.post-content {
+    margin-bottom: $spacing-unit;
+
+    h2 {
+        font-size: 32px;
+
+        @include media-query($on-laptop) {
+            font-size: 28px;
+        }
+    }
+
+    h3 {
+        font-size: 26px;
+
+        @include media-query($on-laptop) {
+            font-size: 22px;
+        }
+    }
+
+    h4 {
+        font-size: 20px;
+
+        @include media-query($on-laptop) {
+            font-size: 18px;
+        }
+    }
+}
+
+/**
+ * Issues / Targets
+ */
+
+.targets {
+  display: flex;
+  flex-wrap: wrap;
+  .target {
+    background-color: lighten($brand-color, 40%);
+    border-radius: 10px;
+    box-shadow: gray 0 0 5px inset;
+    flex: 1;
+    max-width: 50%;
+    min-width: 30%;
+    max-height: 15em;
+    overflow:auto;
+    text-overflow: ellipsis;
+    padding: 0.5em;
+    h2 {
+      background-color: $brand-color;
+      color: white;
+      margin: -0.5em -0.5em 0 -0.5em;
+      text-align: center;
+    }
+    p {
+      font-size: small;
+      margin-bottom: 5px;
+    }
+  }
+}

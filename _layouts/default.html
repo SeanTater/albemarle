@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+
+  {% include head.html %}
+
+  <body>
+
+    {% include header.html %}
+
+    <div class="page-content">
+      <div class="wrapper">
+        {{ content }}
+      </div>
+      <nav class="site-nav">
+        <a class='button' href="http://github.com/SeanTater/albemarle">
+          <i class="fa fa-download" aria-hidden="true"></i>
+          See on Github
+        </a>
+        <a class='button' href="http://seantater.github.io/albemarle/docs/latest">
+          <i class="fa fa-book" aria-hidden="true"></i>
+          API Reference
+        </a>
+        <h2>Index</h2>
+        {% for my_page in site.pages %}
+          {% if my_page.title %}
+          <a href="{{ my_page.url | prepend: site.baseurl }}">{{ my_page.title }}</a>
+          {% endif %}
+        {% endfor %}
+      </nav>
+    </div>
+
+    {% include footer.html %}
+
+  </body>
+
+</html>
