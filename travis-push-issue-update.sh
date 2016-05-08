@@ -8,7 +8,7 @@ Host server1.nixcraft.com
 EOF
 
 # Use the pages repo
-git fetch gh-pages
+git fetch SeanTater@github.com/SeanTater/albemarle.git gh-pages
 git checkout gh-pages
 
 # Get the Github issues
