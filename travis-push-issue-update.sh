@@ -18,7 +18,7 @@ curl -svSLX GET \
 
 # This monster turns specific lines from the test output into JSON
 # Which has the format [{issue: 1, success:"FAILED"},{issue: 3, success:""}]
-egrep "#\d+" ../stacktest.log | perl -pe 's/ +#([0-9]+) (.+ (FAILED) \[\d+\]|.+)\n/{issue: \1, success:"\3"},/' | sed -E 's/(.*),$/[\1]/' >_data/stacktest.json
+egrep "#\d+" ../stacktest.log | perl -pe 's/ +#([0-9]+) (.+ (FAILED) \[\d+\]|.+)\n/\1: "\3"},/' | sed -E 's/(.*),$/{\1}/' >_data/stacktest.json
 
 # Put it on the website
 git add _data/issues.json
