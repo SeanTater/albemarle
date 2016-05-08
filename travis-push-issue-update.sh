@@ -13,6 +13,7 @@ curl -svSLX GET \
   -H "labels: target" \
   -H "creator: SeanTater" \
   -H "Cache-Control: no-cache" \
+  -H "Authorization: token $GITHUB_REPO_KEY" \
   "https://api.github.com/repos/seantater/albemarle/issues" \
   -o _data/issues.json
 
