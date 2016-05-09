@@ -82,8 +82,8 @@ li {
  * Headings
  */
 h1, h2, h3, h4, h5, h6 {
-    font-weight: $base-font-weight;
-    font-family: 'Architects Daughter', sans-serif;
+    font-weight: $base-font-weight + 100;
+    font-family: 'Roboto', sans-serif;
 }
 
 
@@ -110,7 +110,7 @@ a {
  * Blockquotes
  */
 blockquote {
-    background-color: lighten($brand-color, 40%);
+    background-color: fade-out(lighten($brand-color, 40%), 0.3);
     color: $grey-color-dark;
     border-left: 4px solid $grey-color-light;
     margin: 0.2em 1em;

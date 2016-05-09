@@ -276,19 +276,30 @@
 .targets {
   display: flex;
   flex-wrap: wrap;
+  .fail {
+    background-color: lighten(orange, 40%);
+    h2 { background-color: darken(orange, 20%); }
+  }
+  .miss {
+    background-color: lighten(red, 40%);
+    h2 { background-color: darken(red, 20%); }
+  }
+  .pass {
+    background-color: lighten(green, 40%);
+    h2 { background-color: darken(green, 20%); }
+  }
   .target {
-    background-color: lighten($brand-color, 40%);
     border-radius: 10px;
     box-shadow: gray 0 0 5px inset;
     flex: 1;
     max-width: 50%;
     min-width: 30%;
     max-height: 15em;
+    margin: 1em;
     overflow:auto;
     text-overflow: ellipsis;
     padding: 0.5em;
     h2 {
-      background-color: $brand-color;
       color: white;
       margin: -0.5em -0.5em 0 -0.5em;
       text-align: center;

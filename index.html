@@ -6,7 +6,7 @@ layout: default
   {% capture home_markdown %}{% include home.md %}{% endcapture %}
   {{ home_markdown | markdownify }}
 
-  <h1>Progress</h1>
+  <h2>Progress</h2>
   <div class='targets'>
     {% for issue in site.data.issues %}
       {% assign status = site.data.stacktest[issue] || 'missing' %}

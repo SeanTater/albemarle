@@ -1,4 +1,4 @@
-# What we're shooting for
+## What we're shooting for
 Albemarle is an open source natural language processing and topic modeling
 library intended to strike a balance between ease of use and reliability.
 Our goal is for you to run it on tons of crazy and sometimes broken data like
@@ -29,7 +29,7 @@ main = do
   putStrLn topic_model   -- Prints a human-readable summary of the topics
 ```
 
-# How far we've gone
+## How far we've gone
 You can check out how our [continuous integration builds][builds] are going.
 
 [builds]: https://travis-ci.org/SeanTater/albemarle
