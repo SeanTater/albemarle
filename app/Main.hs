@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, NoImplicitPrelude #-}
 module Main where
-import ClassyPrelude.Conduit
+import ClassyPrelude
 import qualified NLP.Albemarle.Tokens as Tokens
 
 main :: IO ()

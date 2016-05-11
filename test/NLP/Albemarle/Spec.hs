@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, NoImplicitPrelude #-}
-import ClassyPrelude.Conduit
+import ClassyPrelude
 import Test.Hspec
 import Test.QuickCheck
 import Control.Exception (evaluate)

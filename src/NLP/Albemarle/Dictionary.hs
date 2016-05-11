@@ -5,7 +5,7 @@ module NLP.Albemarle.Dictionary
     ( discover
     , discoverAdv
     ) where
-import ClassyPrelude.Conduit
+import ClassyPrelude
 import qualified Data.HashSet as HashSet
 import qualified Data.HashMap.Strict as HashMap
 

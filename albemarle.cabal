@@ -18,7 +18,6 @@ library
   hs-source-dirs:      src
   exposed-modules:     NLP.Albemarle.Tokens
                      , NLP.Albemarle.Dictionary
-                     , NLP.Albemarle.Phrases
   build-depends:       base >= 4.7 && < 5
                      , text
                      , unordered-containers
