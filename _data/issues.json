@@ -1,5 +1,47 @@
 [
   {
+    "url": "https://api.github.com/repos/SeanTater/albemarle/issues/3",
+    "repository_url": "https://api.github.com/repos/SeanTater/albemarle",
+    "labels_url": "https://api.github.com/repos/SeanTater/albemarle/issues/3/labels{/name}",
+    "comments_url": "https://api.github.com/repos/SeanTater/albemarle/issues/3/comments",
+    "events_url": "https://api.github.com/repos/SeanTater/albemarle/issues/3/events",
+    "html_url": "https://github.com/SeanTater/albemarle/issues/3",
+    "id": 154341614,
+    "number": 3,
+    "title": "Dictionary (word-id mapping)",
+    "user": {
+      "login": "SeanTater",
+      "id": 3669714,
+      "avatar_url": "https://avatars.githubusercontent.com/u/3669714?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/SeanTater",
+      "html_url": "https://github.com/SeanTater",
+      "followers_url": "https://api.github.com/users/SeanTater/followers",
+      "following_url": "https://api.github.com/users/SeanTater/following{/other_user}",
+      "gists_url": "https://api.github.com/users/SeanTater/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/SeanTater/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/SeanTater/subscriptions",
+      "organizations_url": "https://api.github.com/users/SeanTater/orgs",
+      "repos_url": "https://api.github.com/users/SeanTater/repos",
+      "events_url": "https://api.github.com/users/SeanTater/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/SeanTater/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "milestone": null,
+    "comments": 0,
+    "created_at": "2016-05-11T20:59:06Z",
+    "updated_at": "2016-05-11T20:59:06Z",
+    "closed_at": null,
+    "body": "```haskell\r\n>>> Dictionary.from [\"I\", \"am\", \"the\", \"very\", \"model\", \"of\", \"a\"]\r\n```"
+  },
+  {
     "url": "https://api.github.com/repos/SeanTater/albemarle/issues/2",
     "repository_url": "https://api.github.com/repos/SeanTater/albemarle",
     "labels_url": "https://api.github.com/repos/SeanTater/albemarle/issues/2/labels{/name}",
