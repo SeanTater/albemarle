@@ -22,8 +22,11 @@ main = hspec $ do
       Tokens.wordTokenize weight_gain `shouldBe` weight_gain_tokens
 
     it "#3 Creates Dictionaries" $ do
-      dict <- Dictionary.discoverAdv 2 0.5 100 100 =<< Streams.fromList little_docs
-      dict `shouldBe` little_counts
+      counts <- Dictionary.countAdv 2 0.5 100 100 =<< Streams.fromList little_docs
+      counts `shouldBe` little_counts
+      Dictionary.assignIDs counts `shouldBe` little_ids
+
+
 
 
 
@@ -59,3 +62,6 @@ little_docs = words <$> [
 
 little_counts :: HashMap Text Int
 little_counts = HashMap.fromList [("three", 2), ("four", 2), ("five", 3)]
+
+little_ids :: HashMap Text Int
+little_ids = HashMap.fromList [("three", 2), ("four", 1), ("five", 0)]

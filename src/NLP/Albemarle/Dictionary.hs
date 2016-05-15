@@ -2,7 +2,10 @@
 -- | This is an example.
 --   Yes, it is.
 module NLP.Albemarle.Dictionary
-    ( discover
+    ( assignIDs
+    , count
+    , countAdv
+    , discover
     , discoverAdv
     ) where
 import ClassyPrelude
@@ -10,6 +13,19 @@ import qualified Data.HashSet as HashSet
 import qualified Data.HashMap.Strict as HashMap
 import qualified System.IO.Streams as Streams
 import System.IO.Streams (Generator, InputStream, OutputStream)
+
+-- | Count words and then assign them IDs (a convenience method)
+discover :: InputStream [Text] -> IO (HashMap Text Int)
+discover docstream = assignIDs <$> count docstream
+
+-- | Count words and then assign them IDs (a convenience method)
+discoverAdv :: Int -> Double -> Int -> Int -> InputStream [Text] -> IO (HashMap Text Int)
+discoverAdv hepax stopword blocksize upper_limit documents =
+  assignIDs <$> countAdv hepax stopword blocksize upper_limit documents
+
+-- | Assign IDs to all the words in a dictionary
+assignIDs :: HashMap Text Int -> HashMap Text Int
+assignIDs counts = HashMap.fromList $ zip (sort $ HashMap.keys counts) [0..]
 
 -- | Convenience method: Create a dictionary using the default settings:
 --
@@ -19,8 +35,8 @@ import System.IO.Streams (Generator, InputStream, OutputStream)
 --
 --   The minimum number of times a token must be found is incrmented when the
 --   number of unique filtered tokens reaches over 40 million.
-discover :: InputStream [Text] -> IO (HashMap Text Int)
-discover = discoverAdv 5 0.5 100000 40000000
+count :: InputStream [Text] -> IO (HashMap Text Int)
+count = discoverAdv 5 0.5 100000 40000000
 
 -- | Create a simple dictionary as a HashMap, counting in how many documents
 --   each term can be found.
@@ -34,20 +50,13 @@ discover = discoverAdv 5 0.5 100000 40000000
 --     * in <= 50% of documents     (stopword threshold)
 --     * in blocks of 100000         (thresholds apply to blocks individually)
 --     * incrementing the hepax threshold when the dictionary gets longer than 40M
-discoverAdv :: Int -> Double -> Int -> Int -> InputStream [Text] -> IO (HashMap Text Int)
-discoverAdv hepax stopword blocksize upper_limit documents =
-  Streams.map uniqueWords documents >>= -- documents go in here, come out as word counts
-  Streams.chunkList blocksize >>= -- Work with 100k documents at a time for memory's sake
-  Streams.map (foldl' sumDict mempty) >>= -- For each block: merge the maps, which have (word -> doc count) relations
-  Streams.map goldilocks >>= -- For each block: remove too rare and too common words
-  Streams.fold sumDict mempty
-
-
-  --sumDict $ -- Sum together all the blocks' useful words
-  --goldilocks <$> -- For each block: remove too rare and too common words
-  --sumDict <$>  -- For each block: merge the maps, which have (word -> doc count) relations
-  --blockify  -- Work with 100k documents at a time for memory's sake
-  --(uniqueWords <$> documents)
+countAdv :: Int -> Double -> Int -> Int -> InputStream [Text] -> IO (HashMap Text Int)
+countAdv hepax stopword blocksize upper_limit documents =
+  Streams.map uniqueWords documents -- documents go in here, come out as word counts
+    >>= Streams.chunkList blocksize -- Work with 100k documents at a time for memory's sake
+    >>= Streams.map (foldl' sumDict mempty) -- For each block: merge the maps, which have (word -> doc count) relations
+    >>= Streams.map goldilocks -- For each block: remove too rare and too common words
+    >>= Streams.fold sumDict mempty -- Add together the dictionaries from all the blocks
 
   where
     goldilocks :: HashMap Text Int -> HashMap Text Int
