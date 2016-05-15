@@ -8,6 +8,9 @@ import qualified Data.HashSet as HashSet
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 
+import qualified System.IO.Streams as Streams
+import System.IO.Streams (Generator, InputStream, OutputStream)
+
 import qualified NLP.Albemarle.Tokens as Tokens
 import qualified NLP.Albemarle.Dictionary as Dictionary
 
@@ -18,8 +21,9 @@ main = hspec $ do
     it "#1 Tokenizes" $
       Tokens.wordTokenize weight_gain `shouldBe` weight_gain_tokens
 
-    it "#3 Creates Dictionaries" $
-      Dictionary.discoverAdv 2 0.5 100 100 little_docs `shouldBe` little_counts
+    it "#3 Creates Dictionaries" $ do
+      dict <- Dictionary.discoverAdv 2 0.5 100 100 =<< Streams.fromList little_docs
+      dict `shouldBe` little_counts
 
 
 
