@@ -2,7 +2,8 @@
 -- | This is an example.
 --   Yes, it is.
 module NLP.Albemarle.Dictionary
-    ( assignIDs
+    ( apply
+    , assignIDs
     , count
     , countAdv
     , discover
@@ -12,7 +13,11 @@ import ClassyPrelude
 import qualified Data.HashSet as HashSet
 import qualified Data.HashMap.Strict as HashMap
 import qualified System.IO.Streams as Streams
+import Debug.Trace
 import System.IO.Streams (Generator, InputStream, OutputStream)
+
+apply :: HashMap Text Int -> InputStream [Text] -> IO (InputStream [Int])
+apply dict = Streams.map $ map (\tok -> HashMap.lookupDefault 0 tok dict)
 
 -- | Count words and then assign them IDs (a convenience method)
 discover :: InputStream [Text] -> IO (HashMap Text Int)
@@ -25,7 +30,7 @@ discoverAdv hepax stopword blocksize upper_limit documents =
 
 -- | Assign IDs to all the words in a dictionary
 assignIDs :: HashMap Text Int -> HashMap Text Int
-assignIDs counts = HashMap.fromList $ zip (sort $ HashMap.keys counts) [0..]
+assignIDs counts = HashMap.fromList $ zip (sort $ HashMap.keys counts) [1..]
 
 -- | Convenience method: Create a dictionary using the default settings:
 --

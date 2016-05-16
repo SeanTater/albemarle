@@ -26,6 +26,11 @@ main = hspec $ do
       counts `shouldBe` little_counts
       Dictionary.assignIDs counts `shouldBe` little_ids
 
+    it "#4 Applies Dictionaries" $ do
+      dict <- Dictionary.discoverAdv 2 0.5 100 100 =<< Streams.fromList little_docs
+      ids <- Streams.fromList little_docs >>= Dictionary.apply dict >>= Streams.toList
+      ids `shouldBe` little_doc_ids
+
 
 
 
@@ -60,8 +65,19 @@ little_docs = words <$> [
   "eighteen",
   ""]
 
+little_doc_ids :: [[Int]]
+little_doc_ids = [
+  [0, 0, 3, 2, 1],
+  [0, 0, 3, 2, 1],
+  [0, 0, 0, 0, 0, 0],
+  [0, 0, 1, 0, 0, 0],
+  [0, 0, 0, 0, 0],
+  [0],
+  []
+  ]
+
 little_counts :: HashMap Text Int
 little_counts = HashMap.fromList [("three", 2), ("four", 2), ("five", 3)]
 
 little_ids :: HashMap Text Int
-little_ids = HashMap.fromList [("three", 2), ("four", 1), ("five", 0)]
+little_ids = HashMap.fromList [("three", 3), ("four", 2), ("five", 1)]
