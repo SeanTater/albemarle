@@ -1,6 +1,4 @@
 {-# LANGUAGE OverloadedStrings, NoImplicitPrelude #-}
--- | This is an example.
---   Yes, it is.
 module NLP.Albemarle.Dictionary
     ( apply
     , assignIDs
@@ -16,20 +14,27 @@ import qualified System.IO.Streams as Streams
 import Debug.Trace
 import System.IO.Streams (Generator, InputStream, OutputStream)
 
-apply :: HashMap Text Int -> InputStream [Text] -> IO (InputStream [Int])
-apply dict = Streams.map $ map (\tok -> HashMap.lookupDefault 0 tok dict)
+type SparseVector = HashMap Int Int
+type Dictionary = HashMap Text Int
+type Histogram = HashMap Text Int
+
+-- |
+
+-- | Convert a list of words into a sparse matrix of ID's given a dictionary
+apply :: Dictionary -> InputStream [Text] -> IO (InputStream SparseVector)
+apply dict = Streams.map $ HashMap.fromListWith (+) . map (\tok -> (HashMap.lookupDefault 0 tok dict, 1))
 
 -- | Count words and then assign them IDs (a convenience method)
-discover :: InputStream [Text] -> IO (HashMap Text Int)
+discover :: InputStream [Text] -> IO Dictionary
 discover docstream = assignIDs <$> count docstream
 
 -- | Count words and then assign them IDs (a convenience method)
-discoverAdv :: Int -> Double -> Int -> Int -> InputStream [Text] -> IO (HashMap Text Int)
+discoverAdv :: Int -> Double -> Int -> Int -> InputStream [Text] -> IO Dictionary
 discoverAdv hepax stopword blocksize upper_limit documents =
   assignIDs <$> countAdv hepax stopword blocksize upper_limit documents
 
 -- | Assign IDs to all the words in a dictionary
-assignIDs :: HashMap Text Int -> HashMap Text Int
+assignIDs :: Histogram -> Dictionary
 assignIDs counts = HashMap.fromList $ zip (sort $ HashMap.keys counts) [1..]
 
 -- | Convenience method: Create a dictionary using the default settings:
@@ -40,7 +45,7 @@ assignIDs counts = HashMap.fromList $ zip (sort $ HashMap.keys counts) [1..]
 --
 --   The minimum number of times a token must be found is incrmented when the
 --   number of unique filtered tokens reaches over 40 million.
-count :: InputStream [Text] -> IO (HashMap Text Int)
+count :: InputStream [Text] -> IO Histogram
 count = discoverAdv 5 0.5 100000 40000000
 
 -- | Create a simple dictionary as a HashMap, counting in how many documents
@@ -55,7 +60,7 @@ count = discoverAdv 5 0.5 100000 40000000
 --     * in <= 50% of documents     (stopword threshold)
 --     * in blocks of 100000         (thresholds apply to blocks individually)
 --     * incrementing the hepax threshold when the dictionary gets longer than 40M
-countAdv :: Int -> Double -> Int -> Int -> InputStream [Text] -> IO (HashMap Text Int)
+countAdv :: Int -> Double -> Int -> Int -> InputStream [Text] -> IO Histogram
 countAdv hepax stopword blocksize upper_limit documents =
   Streams.map uniqueWords documents -- documents go in here, come out as word counts
     >>= Streams.chunkList blocksize -- Work with 100k documents at a time for memory's sake
@@ -64,17 +69,17 @@ countAdv hepax stopword blocksize upper_limit documents =
     >>= Streams.fold sumDict mempty -- Add together the dictionaries from all the blocks
 
   where
-    goldilocks :: HashMap Text Int -> HashMap Text Int
+    goldilocks :: Histogram -> Histogram
     goldilocks block = HashMap.filter (\x -> x >= hepax && x <= limit) block
       where limit = floor ( stopword * fromIntegral (HashMap.lookupDefault 1 "" block) )
 
     -- This trick helps to count the documents in a block without extra
     -- indirections
-    uniqueWords :: [Text] -> HashMap Text Int
+    uniqueWords :: [Text] -> Histogram
     uniqueWords = HashMap.insert "" 1 .
       HashMap.map (const 1) .
       HashSet.toMap .
       HashSet.fromList
 
-    sumDict :: HashMap Text Int -> HashMap Text Int -> HashMap Text Int
+    sumDict :: Histogram -> Histogram -> Histogram
     sumDict = HashMap.unionWith (+)

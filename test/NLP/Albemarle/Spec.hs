@@ -29,7 +29,11 @@ main = hspec $ do
     it "#4 Applies Dictionaries" $ do
       dict <- Dictionary.discoverAdv 2 0.5 100 100 =<< Streams.fromList little_docs
       ids <- Streams.fromList little_docs >>= Dictionary.apply dict >>= Streams.toList
-      ids `shouldBe` little_doc_ids
+      ids `shouldBe` little_sparse_vectors
+
+  describe "Topic Analysis" $ do
+    it "#5 Generates LSA Models" $ do
+      "BOGUS" `shouldBe` "NOPE"
 
 
 
@@ -65,15 +69,15 @@ little_docs = words <$> [
   "eighteen",
   ""]
 
-little_doc_ids :: [[Int]]
-little_doc_ids = [
-  [0, 0, 3, 2, 1],
-  [0, 0, 3, 2, 1],
-  [0, 0, 0, 0, 0, 0],
-  [0, 0, 1, 0, 0, 0],
-  [0, 0, 0, 0, 0],
-  [0],
-  []
+little_sparse_vectors :: [HashMap Int Int]
+little_sparse_vectors = [
+  HashMap.fromList [(0, 2), (1, 1), (2, 1), (3, 1)],
+  HashMap.fromList [(0, 2), (1, 1), (2, 1), (3, 1)],
+  HashMap.fromList [(0, 6)],
+  HashMap.fromList [(0, 5), (1, 1)],
+  HashMap.fromList [(0, 5)],
+  HashMap.fromList [(0, 1)],
+  HashMap.fromList []
   ]
 
 little_counts :: HashMap Text Int
