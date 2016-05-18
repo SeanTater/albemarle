@@ -93,9 +93,9 @@
     },
     "comments": 0,
     "created_at": "2016-05-16T23:05:37Z",
-    "updated_at": "2016-05-16T23:05:37Z",
+    "updated_at": "2016-05-18T13:51:58Z",
     "closed_at": null,
-    "body": "It should do the following\r\n```haskell\r\ndict <- Dictionary.discoverAdv 2 0.5 100 100 =<< Streams.fromList little_docs\r\nids <- Streams.fromList little_docs >>= Dictionary.apply dict >>= Streams.toList\r\nids `shouldBe` little_doc_ids\r\n```\r\n\r\nand for reference\r\n```haskell\r\nlittle_docs :: [[Text]]\r\nlittle_docs = words <$> [\r\n  \"one two three four five\",\r\n  \"one two three four five\",\r\n  \"one two seven eight nine ten\",\r\n  \"one two five twelve thirteen fourteen\",\r\n  \"one two fifteen sixteen seventeen\",\r\n  \"eighteen\",\r\n  \"\"]\r\n\r\nlittle_doc_ids :: [[Int]]\r\nlittle_doc_ids = [\r\n  [0, 0, 3, 2, 1],\r\n  [0, 0, 3, 2, 1],\r\n  [0, 0, 0, 0, 0, 0],\r\n  [0, 0, 1, 0, 0, 0],\r\n  [0, 0, 0, 0, 0],\r\n  [0],\r\n  []\r\n  ]\r\n```"
+    "body": "It should do the following\r\n```haskell\r\ndict <- Dictionary.discoverAdv 2 0.5 100 100 =<< Streams.fromList little_docs\r\nids <- Streams.fromList little_docs >>= Dictionary.apply dict >>= Streams.toList\r\nids shouldBe little_doc_ids\r\n```\r\n\r\nand for reference\r\n```haskell\r\nlittle_docs :: [[Text]]\r\nlittle_docs = words <$> [\r\n  \"one two three four five\",\r\n  \"one two three four five\",\r\n  \"one two seven eight nine ten\",\r\n  \"one two five twelve thirteen fourteen\",\r\n  \"one two fifteen sixteen seventeen\",\r\n  \"eighteen\",\r\n  \"\"]\r\n\r\nlittle_doc_ids :: [[Int]]\r\nlittle_doc_ids = [\r\n  [0, 0, 3, 2, 1],\r\n  [0, 0, 3, 2, 1],\r\n  [0, 0, 0, 0, 0, 0],\r\n  [0, 0, 1, 0, 0, 0],\r\n  [0, 0, 0, 0, 0],\r\n  [0],\r\n  []\r\n  ]\r\n```"
   },
   {
     "url": "https://api.github.com/repos/SeanTater/albemarle/issues/3",
