@@ -10,11 +10,14 @@ main = do
   -- Load the term-document matrix
   putStrLn "Loading"
   matrix <- HMatrix.loadMatrix "termdoc.txt"
-  result <- stochasticTruncatedSVD 50 2 matrix
-  print $ HMatrix.size result
+  (u, sigma, vt) <- stochasticTruncatedSVD 50 2 matrix
+
+  print $ HMatrix.size u
+  print $ HMatrix.size sigma
+  print $ HMatrix.size vt
 
 -- Stochastic SVD. See Halko, Martinsson, and Tropp, 2010 for an explanation
-stochasticTruncatedSVD :: Int -> Int -> HMatrix.Matrix Double -> IO (HMatrix.Matrix Double)
+stochasticTruncatedSVD :: Int -> Int -> HMatrix.Matrix Double -> IO (HMatrix.Matrix Double, HMatrix.Vector Double, HMatrix.Matrix Double)
 stochasticTruncatedSVD top_vectors num_iterations original = do
   let (m, n) = HMatrix.size original
   let k = top_vectors + 100
@@ -34,7 +37,9 @@ stochasticTruncatedSVD top_vectors num_iterations original = do
       (uhat, sigma, vt) = HMatrix.thinSVD b
       u = q <> uhat
 
-  return $! HMatrix.subMatrix (0,0) (n, top_vectors) $ tr vt
+  return $! (HMatrix.takeColumns top_vectors u,
+    HMatrix.subVector 0 top_vectors sigma,
+    HMatrix.takeRows top_vectors $ tr vt)
   --putStrLn "Checking"
   --let ahat = u <> HMatrix.diag sigma <> tr vt
 
