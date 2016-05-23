@@ -20,7 +20,7 @@ main = do
 stochasticTruncatedSVD :: Int -> Int -> HMatrix.Matrix Double -> IO (HMatrix.Matrix Double, HMatrix.Vector Double, HMatrix.Matrix Double)
 stochasticTruncatedSVD top_vectors num_iterations original = do
   let (m, n) = HMatrix.size original
-  let k = top_vectors + 100
+  let k = top_vectors + 10
   -- Stage A
   putStrLn "Stage A\n\tPower Iteration"
   omega <- HMatrix.randn n k

@@ -13,6 +13,8 @@ import System.IO.Streams (Generator, InputStream, OutputStream)
 
 import qualified NLP.Albemarle.Tokens as Tokens
 import qualified NLP.Albemarle.Dictionary as Dictionary
+import qualified NLP.Albemarle.LSA as LSA
+import qualified Numeric.LinearAlgebra as HMatrix
 
 
 main :: IO ()
@@ -32,6 +34,14 @@ main = hspec $ do
       ids `shouldBe` little_sparse_vectors
 
   describe "Topic Analysis" $ do
+    it "Performs stochastic truncated SVD" $ do
+      matrix <- HMatrix.loadMatrix "termdoc.txt"
+      (u, sigma, vt) <- LSA.stochasticTruncatedSVD 50 2 matrix
+
+      print $ HMatrix.size u
+      print $ HMatrix.size sigma
+      print $ HMatrix.size vt
+
     it "#5 Generates LSA Models" $ do
       "BOGUS" `shouldBe` "NOPE"
 
