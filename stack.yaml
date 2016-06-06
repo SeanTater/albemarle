@@ -14,4 +14,5 @@ extra-deps:
 - mono-traversable-0.10.2
 - text-1.2.2.1
 - unordered-containers-0.2.7.0
+- lz4-0.2.3.1
 resolver: lts-5.12

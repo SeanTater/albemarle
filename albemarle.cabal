@@ -16,9 +16,11 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     NLP.Albemarle.Tokens
+  exposed-modules:     NLP.Albemarle
+                     , NLP.Albemarle.Tokens
                      , NLP.Albemarle.Dictionary
                      , NLP.Albemarle.LSA
+                     , NLP.Albemarle.Sparse
   build-depends:       base >= 4.7 && < 5
                      , text
                      , text-icu
@@ -30,6 +32,10 @@ library
                      , hmatrix
                      , binary
                      , text-format >= 0.3
+                     , vector-algorithms >= 0.7.0.1
+                     , vector-binary-instances >= 0.2.3.1
+                     , parallel >= 3.2.1.0
+                     , criterion
   default-language:    Haskell2010
 
 executable albemarle-exe
@@ -44,6 +50,8 @@ executable albemarle-exe
                      , io-streams
                      , vector
                      , hmatrix
+                     , lz4 >= 0.2.3.1
+                     , bytestring
   default-language:    Haskell2010
 
 test-suite albemarle-test
@@ -59,6 +67,10 @@ test-suite albemarle-test
                      , io-streams
                      , vector
                      , hmatrix
+                     , lz4 >= 0.2.3.1
+                     , bytestring
+                     , binary
+                     , criterion
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
   -- The following directories are needed for Homebrew on Mac

@@ -3,6 +3,7 @@ module NLP.Albemarle.Tokens
     ( wordTokenize
     ) where
 import ClassyPrelude
+import NLP.Albemarle
 import Data.Text (Text)
 import Control.Applicative ((<$>))
 import qualified Data.Text.ICU as ICU

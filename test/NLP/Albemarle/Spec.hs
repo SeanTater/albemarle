@@ -10,11 +10,15 @@ import qualified Data.HashMap.Strict as HashMap
 
 import qualified System.IO.Streams as Streams
 import System.IO.Streams (Generator, InputStream, OutputStream)
-
+import qualified Data.Vector.Unboxed as Vec
+import NLP.Albemarle
 import qualified NLP.Albemarle.Tokens as Tokens
 import qualified NLP.Albemarle.Dictionary as Dictionary
 import qualified NLP.Albemarle.LSA as LSA
 import qualified Numeric.LinearAlgebra as HMatrix
+import qualified NLP.Albemarle.Sparse as Sparse
+import qualified Data.Binary as Bin
+import qualified Criterion.Main
 
 
 main :: IO ()
@@ -42,10 +46,16 @@ main = hspec $ do
       print $ HMatrix.size sigma
       print $ HMatrix.size vt
 
-    it "#5 Generates LSA Models" $ do
+    it "#5 Performs stochastic truncated sparse SVD" $ do
+      matrix <- Bin.decodeFile "termdoc.sparsemat" :: IO Sparse.SparseMatrix
+      (u, sigma, vt) <- LSA.sparseStochasticTruncatedSVD 50 2 matrix
+
+      print $ HMatrix.size u
+      print $ HMatrix.size sigma
+      print $ HMatrix.size vt
+
+    it "Generates LSA Models" $ do
       "BOGUS" `shouldBe` "NOPE"
-
-
 
 
 
@@ -79,15 +89,15 @@ little_docs = words <$> [
   "eighteen",
   ""]
 
-little_sparse_vectors :: [HashMap Int Int]
-little_sparse_vectors = [
-  HashMap.fromList [(0, 2), (1, 1), (2, 1), (3, 1)],
-  HashMap.fromList [(0, 2), (1, 1), (2, 1), (3, 1)],
-  HashMap.fromList [(0, 6)],
-  HashMap.fromList [(0, 5), (1, 1)],
-  HashMap.fromList [(0, 5)],
-  HashMap.fromList [(0, 1)],
-  HashMap.fromList []
+little_sparse_vectors :: [Document]
+little_sparse_vectors = Vec.fromList <$> [
+  [(0, 2), (1, 1), (2, 1), (3, 1)],
+  [(0, 2), (1, 1), (2, 1), (3, 1)],
+  [(0, 6)],
+  [(0, 5), (1, 1)],
+  [(0, 5)],
+  [(0, 1)],
+  []
   ]
 
 little_counts :: HashMap Text Int
