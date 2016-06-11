@@ -21,9 +21,11 @@ library
                      , NLP.Albemarle.Dictionary
                      , NLP.Albemarle.LSA
                      , NLP.Albemarle.Sparse
+                     , NLP.Albemarle.Scrape
   build-depends:       base >= 4.7 && < 5
-                     , text
+                     , text >= 1.2.2
                      , text-icu
+                     , bytestring >= 0.10.6
                      , unordered-containers
                      , classy-prelude
                      , contravariant
@@ -36,6 +38,9 @@ library
                      , vector-binary-instances >= 0.2.3.1
                      , parallel >= 3.2.1.0
                      , criterion
+                     , curl >= 1.3.8
+                     , pcre-heavy >= 1.0.0
+                     , eigen >= 2.1.6
   default-language:    Haskell2010
 
 executable albemarle-exe
@@ -43,7 +48,7 @@ executable albemarle-exe
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base >= 4.7 && < 5
-                     , text
+                     , text >= 1.2.2
                      , unordered-containers >= 0.2.6.0
                      , classy-prelude
                      , albemarle
@@ -52,6 +57,7 @@ executable albemarle-exe
                      , hmatrix
                      , lz4 >= 0.2.3.1
                      , bytestring
+                     , pcre-heavy >= 1.0.0
   default-language:    Haskell2010
 
 test-suite albemarle-test
@@ -69,8 +75,13 @@ test-suite albemarle-test
                      , hmatrix
                      , lz4 >= 0.2.3.1
                      , bytestring
+                     , text >= 1.2.2
                      , binary
                      , criterion
+                     , HandsomeSoup
+                     , hxt >= 9.3.1
+                     , hxt-curl >= 9.1.1
+                     , eigen >= 2.1.6
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
   -- The following directories are needed for Homebrew on Mac

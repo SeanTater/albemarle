@@ -10,9 +10,7 @@ templates:
 packages:
 - '.'
 extra-deps:
-- base-orphans-0.5.4
-- mono-traversable-0.10.2
-- text-1.2.2.1
-- unordered-containers-0.2.7.0
 - lz4-0.2.3.1
-resolver: lts-5.12
+- text-1.2.2.1
+- eigen-2.1.6
+resolver: lts-6.2

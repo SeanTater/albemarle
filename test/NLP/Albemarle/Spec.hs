@@ -2,27 +2,30 @@
 import ClassyPrelude
 import Test.Hspec
 import Test.QuickCheck
+import qualified Criterion.Main as Criterion
+
 import Control.Exception (evaluate)
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
-
 import qualified System.IO.Streams as Streams
 import System.IO.Streams (Generator, InputStream, OutputStream)
 import qualified Data.Vector.Unboxed as Vec
+import qualified Numeric.LinearAlgebra as HMatrix
+import qualified Data.Binary as Bin
+
 import NLP.Albemarle
 import qualified NLP.Albemarle.Tokens as Tokens
 import qualified NLP.Albemarle.Dictionary as Dictionary
 import qualified NLP.Albemarle.LSA as LSA
-import qualified Numeric.LinearAlgebra as HMatrix
 import qualified NLP.Albemarle.Sparse as Sparse
-import qualified Data.Binary as Bin
-import qualified Criterion.Main
+import qualified NLP.Albemarle.Examples.Webpage as Webpage
 
 
 main :: IO ()
 main = hspec $ do
+  Webpage.test
   describe "Standard Tools" $ do
     it "#1 Tokenizes" $
       Tokens.wordTokenize weight_gain `shouldBe` weight_gain_tokens
@@ -39,7 +42,7 @@ main = hspec $ do
 
   describe "Topic Analysis" $ do
     it "Performs stochastic truncated SVD" $ do
-      matrix <- HMatrix.loadMatrix "termdoc.txt"
+      matrix <- HMatrix.loadMatrix "termdoc.small.txt"
       (u, sigma, vt) <- LSA.stochasticTruncatedSVD 50 2 matrix
 
       print $ HMatrix.size u
@@ -47,12 +50,13 @@ main = hspec $ do
       print $ HMatrix.size vt
 
     it "#5 Performs stochastic truncated sparse SVD" $ do
-      matrix <- Bin.decodeFile "termdoc.sparsemat" :: IO Sparse.SparseMatrix
-      (u, sigma, vt) <- LSA.sparseStochasticTruncatedSVD 50 2 matrix
+      --matrix <- Bin.decodeFile "termdoc.sparsemat" :: IO Sparse.SparseMatrix
+      --(u, sigma, vt) <- LSA.sparseStochasticTruncatedSVD 50 2 matrix
 
-      print $ HMatrix.size u
-      print $ HMatrix.size sigma
-      print $ HMatrix.size vt
+      --print $ HMatrix.size u
+      --print $ HMatrix.size sigma
+      --print $ HMatrix.size vt
+      "FAIL" `shouldBe` ""
 
     it "Generates LSA Models" $ do
       "BOGUS" `shouldBe` "NOPE"
