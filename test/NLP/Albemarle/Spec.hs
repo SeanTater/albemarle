@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings, NoImplicitPrelude #-}
+import Prelude (read)
 import ClassyPrelude
 import Test.Hspec
 import Test.QuickCheck
@@ -14,6 +15,8 @@ import System.IO.Streams (Generator, InputStream, OutputStream)
 import qualified Data.Vector.Unboxed as Vec
 import qualified Numeric.LinearAlgebra as HMatrix
 import qualified Data.Binary as Bin
+import qualified Data.Eigen.Matrix as Eigen
+import qualified Data.Eigen.SparseMatrix as ESP
 
 import NLP.Albemarle
 import qualified NLP.Albemarle.Tokens as Tokens
@@ -21,6 +24,7 @@ import qualified NLP.Albemarle.Dictionary as Dictionary
 import qualified NLP.Albemarle.LSA as LSA
 import qualified NLP.Albemarle.Sparse as Sparse
 import qualified NLP.Albemarle.Examples.Webpage as Webpage
+import qualified NLP.Albemarle.EigenLSA as EigenLSA
 
 
 main :: IO ()
@@ -50,13 +54,13 @@ main = hspec $ do
       print $ HMatrix.size vt
 
     it "#5 Performs stochastic truncated sparse SVD" $ do
-      --matrix <- Bin.decodeFile "termdoc.sparsemat" :: IO Sparse.SparseMatrix
-      --(u, sigma, vt) <- LSA.sparseStochasticTruncatedSVD 50 2 matrix
+      mat_txt <- readFile "termdoc.small.txt"
+      let mat = fmap (fmap read . words) $ lines mat_txt
+      let smat = ESP.fromDenseList mat
+      u <- EigenLSA.eigenLSA 50 2 smat
 
-      --print $ HMatrix.size u
-      --print $ HMatrix.size sigma
-      --print $ HMatrix.size vt
-      "FAIL" `shouldBe` ""
+      print $ Eigen.dims u
+      Eigen.rows u `shouldBe` 45678
 
     it "Generates LSA Models" $ do
       "BOGUS" `shouldBe` "NOPE"
