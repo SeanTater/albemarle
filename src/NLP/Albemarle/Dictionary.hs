@@ -23,7 +23,7 @@ type Histogram = HashMap Text Int
 -- |
 
 -- | Convert a list of words into a sparse matrix of ID's given a dictionary
-apply :: Dictionary -> InputStream [Text] -> IO (InputStream Document)
+apply :: Dictionary -> InputStream [Text] -> IO (InputStream BagOfWords)
 apply dict = Streams.map $ sparseMapToVec . HashMap.fromListWith (+) . map (\tok -> (HashMap.lookupDefault 0 tok dict, 1))
   where
     sparseMapToVec = Vec.fromList . sort . HashMap.toList

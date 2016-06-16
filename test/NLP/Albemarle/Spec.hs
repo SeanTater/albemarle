@@ -53,17 +53,18 @@ main = hspec $ do
       print $ HMatrix.size sigma
       print $ HMatrix.size vt
 
-    it "#5 Performs stochastic truncated sparse SVD" $ do
-      mat_txt <- readFile "termdoc.small.txt"
-      let mat = fmap (fmap read . words) $ lines mat_txt
-      let smat = ESP.fromDenseList mat
-      u <- EigenLSA.eigenLSA 50 2 smat
+    --it "#5 Performs stochastic truncated sparse SVD" $ do
+    --  mat_txt <- readFile "termdoc.small.txt"
+    --  let mat = fmap (fmap read . words) $ lines mat_txt
+    --  let smat = ESP.fromDenseList mat
+    --  u <- EigenLSA.eigenLSA 50 2 smat
 
-      print $ Eigen.dims u
-      Eigen.rows u `shouldBe` 45678
+    --  print $ Eigen.dims u
+    --  Eigen.rows u `shouldBe` 1000
 
-    it "Generates LSA Models" $ do
-      "BOGUS" `shouldBe` "NOPE"
+  describe "Word2vec" $ do
+    it "Generates Skip-grams" $ do
+      False `shouldBe` True
 
 
 
@@ -97,7 +98,7 @@ little_docs = words <$> [
   "eighteen",
   ""]
 
-little_sparse_vectors :: [Document]
+little_sparse_vectors :: [BagOfWords]
 little_sparse_vectors = Vec.fromList <$> [
   [(0, 2), (1, 1), (2, 1), (3, 1)],
   [(0, 2), (1, 1), (2, 1), (3, 1)],

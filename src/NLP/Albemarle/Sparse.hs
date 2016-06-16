@@ -29,7 +29,7 @@ data SparseMatrix = RowMatrix Coords | ColMatrix Coords
 instance Bin.Binary SparseMatrix
 
 -- | Create a sparse matrix from rows
-fromDocuments :: [Document] -> SparseMatrix
+fromDocuments :: [BagOfWords] -> SparseMatrix
 fromDocuments rows = RowMatrix $ Vec.concat [ docToSparseRow docid doc | (docid, doc) <- zip [0..] rows ]
   where docToSparseRow docid = Vec.map (\(colid, val) -> (docid, colid, fromIntegral val))
 

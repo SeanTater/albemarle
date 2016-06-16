@@ -7,6 +7,7 @@ module NLP.Albemarle.LSA
     , standardLSA
     ) where
 import NLP.Albemarle
+import Data.List (cycle)
 import ClassyPrelude hiding ((<>)) -- this <> is for semigroups (usually better)
 import Data.Monoid ((<>)) -- ... but HMatrix only has Monoid
 import qualified NLP.Albemarle.Sparse as Sparse
@@ -31,7 +32,7 @@ apply = ()
 discover :: ()
 discover = ()
 
-sparseLSA :: Int -> InputStream (Document) -> IO LSAModel
+sparseLSA :: Int -> InputStream BagOfWords -> IO LSAModel
 sparseLSA num_topics docs = do
   doclist <- Streams.toList docs
   (u, _, _) <- sparseStochasticTruncatedSVD num_topics 2 $ Sparse.fromDocuments doclist
@@ -44,7 +45,6 @@ sparseStochasticTruncatedSVD top_vectors num_iterations original = do
       k = top_vectors + 10
 
   -- Stage A
-  putStrLn "Stage A\n\tPower Iteration"
   omega <- Sparse.sparse <$> HMatrix.randn width k
   -- In the paper this is (AA^T)\sup{q} A \omega
   let originalT = Sparse.shift $ Sparse.transpose original
@@ -57,13 +57,10 @@ sparseStochasticTruncatedSVD top_vectors num_iterations original = do
         (original `Sparse.multCol`
         (originalT `Sparse.multCol`
         (original `Sparse.multCol` omega))))
-  putStrLn $ "\tDensifying " ++ tshow (Sparse.size bigSparseY)
   bigY <- return $! Sparse.dense bigSparseY
-  putStrLn "\tOrthogonalizing"
   q <- return $! HMatrix.orth bigY -- Typically a slow point (force again)
 
   -- Stage B
-  putStrLn "Stage B"
   let b = Sparse.dense $ ( Sparse.sparse $ tr q ) `Sparse.mult` original
       (uhat, sigma, vt) = HMatrix.thinSVD b
       u = q <> uhat
@@ -73,7 +70,7 @@ sparseStochasticTruncatedSVD top_vectors num_iterations original = do
     HMatrix.takeRows top_vectors $ tr vt)
 
 
-standardLSA :: Int -> InputStream (Document) -> IO LSAModel
+standardLSA :: Int -> InputStream BagOfWords -> IO LSAModel
 standardLSA num_topics sparse_vecs = do
   -- full_mat: [[(word_id, count)]]
   full_mat <-  Streams.map Vec.toList sparse_vecs >>= Streams.toList
@@ -92,17 +89,13 @@ stochasticTruncatedSVD top_vectors num_iterations original = do
       k = top_vectors + 10
 
   -- Stage A
-  putStrLn "Stage A\n\tPower Iteration"
   omega <- HMatrix.randn width k
   -- In the paper this is (AA^T)\sup{q} A \omega
-  let y 0 = original <> omega -- Usually the bottleneck
-      y n = seq (y (n-1)) $ original <> tr original <> y (n-1) -- a little faster
-  bigY <- return $! y num_iterations -- Force evaluation here
-  putStrLn "\tOrthogonalizing"
+  let factors = (take (2*num_iterations) $ cycle [original, tr original]) ++ [original, omega] :: [Matrix Double]
+  bigY <- return $! mconcat factors
   q <- return $! HMatrix.orth bigY -- Typically a slow point (force again)
 
   -- Stage B
-  putStrLn "Stage B"
   let b = tr q <> original
       (uhat, sigma, vt) = HMatrix.thinSVD b
       u = q <> uhat
