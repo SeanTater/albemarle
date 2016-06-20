@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings, NoImplicitPrelude, BangPatterns #-}
 module NLP.Albemarle.LSA
-    ( apply
-    , discover
-    , sparseStochasticTruncatedSVD
+    ( batchLSA
     , stochasticTruncatedSVD
     , standardLSA
+    , SVD.sparsify
+    , SVD.sparseSvd
     ) where
 import NLP.Albemarle
 import Data.List (cycle)
@@ -15,66 +15,41 @@ import qualified Data.Vector.Unboxed as Vec
 import qualified Data.HashMap.Strict as HashMap
 import Numeric.LinearAlgebra (Matrix, tr) -- transpose
 import qualified Numeric.LinearAlgebra as HMatrix
+import qualified Numeric.LinearAlgebra.Devel as HMatrix
+import qualified Numeric.LinearAlgebra.SVD.SVDLIBC as SVD
 import qualified Data.Text.Format as Format
 import qualified System.IO.Streams as Streams
 import qualified Criterion.Main
 import System.IO.Streams (Generator, InputStream, OutputStream)
+import Debug.Trace
 
 type LSAModel = Matrix Double
 
-ffor = flip map
 
-apply :: ()
-apply = ()
+--sparseLSA :: Int -> InputStream BagOfWords -> IO LSAModel
+--sparseLSA num_topics docs = do
+--  doclist <- Streams.toList docs
+--  let (u, _, _) = batchLSA num_topics $ Sparse.fromDocuments doclist
+--  return u
 
--- | Generate an LSA model from an input stream of sparse vectors.
---   In the current implementation it all needs to be in memory. That can b
-discover :: ()
-discover = ()
-
-sparseLSA :: Int -> InputStream BagOfWords -> IO LSAModel
-sparseLSA num_topics docs = do
-  doclist <- Streams.toList docs
-  (u, _, _) <- sparseStochasticTruncatedSVD num_topics 2 $ Sparse.fromDocuments doclist
-  return u
-
--- | Stochastic SVD. See Halko, Martinsson, and Tropp, 2010 for an explanation
-sparseStochasticTruncatedSVD :: Int -> Int -> Sparse.SparseMatrix -> IO (Matrix Double, HMatrix.Vector Double, Matrix Double)
-sparseStochasticTruncatedSVD top_vectors num_iterations original = do
-  let (height, width) = Sparse.size original
-      k = top_vectors + 10
-
-  -- Stage A
-  omega <- Sparse.sparse <$> HMatrix.randn width k
-  -- In the paper this is (AA^T)\sup{q} A \omega
-  let originalT = Sparse.shift $ Sparse.transpose original
-  --let y 0 = original `Sparse.mult` omega -- Usually the bottleneck
-  --    y n = seq (y (n-1)) $ original `Sparse.mult` originalT `Sparse.mult` y (n-1) -- a little faster
-  --bigSparseY <- return $! y num_iterations -- Force evaluation here
-  let bigSparseY =
-        originalT `Sparse.multCol`
-        (originalT `Sparse.multCol`
-        (original `Sparse.multCol`
-        (originalT `Sparse.multCol`
-        (original `Sparse.multCol` omega))))
-  bigY <- return $! Sparse.dense bigSparseY
-  q <- return $! HMatrix.orth bigY -- Typically a slow point (force again)
-
-  -- Stage B
-  let b = Sparse.dense $ ( Sparse.sparse $ tr q ) `Sparse.mult` original
-      (uhat, sigma, vt) = HMatrix.thinSVD b
-      u = q <> uhat
-
-  return $! (HMatrix.takeColumns top_vectors u,
-    HMatrix.subVector 0 top_vectors sigma,
-    HMatrix.takeRows top_vectors $ tr vt)
-
+-- | SVD with some transposes, for convenience and speed
+-- Normally (U, Sigma, V^T) = svd A, but then the rows are topics and the cols
+-- are the documents/words (in U and V). But we use C-style (row major) matrices
+-- which means for large matrices, getting the vector of one word or one doc
+-- will require reading the whole model from memory. (A terrible waste of cache)
+-- So instead we use (U^T, sigma, V) where the rows are the vector embeddings
+-- of documents and words instead.
+batchLSA :: Int -> HMatrix.CSR -> (Matrix Double, HMatrix.Vector Double, Matrix Double)
+batchLSA top_vectors csr =
+  let (u, s, vt) = SVD.sparseSvd top_vectors csr
+  in  (tr u, s, tr vt)
 
 standardLSA :: Int -> InputStream BagOfWords -> IO LSAModel
 standardLSA num_topics sparse_vecs = do
   -- full_mat: [[(word_id, count)]]
   full_mat <-  Streams.map Vec.toList sparse_vecs >>= Streams.toList
-  let assoc_mat :: [((Int, Int), Double)]
+  let ffor = flip map
+      assoc_mat :: [((Int, Int), Double)]
       assoc_mat = mconcat $
         ffor (zip [0..] full_mat) $ \(doc_id, word_n_count) ->
             ffor word_n_count $ \(word_id, count) ->
@@ -102,4 +77,4 @@ stochasticTruncatedSVD top_vectors num_iterations original = do
 
   return $! (HMatrix.takeColumns top_vectors u,
     HMatrix.subVector 0 top_vectors sigma,
-    HMatrix.takeRows top_vectors $ tr vt)
+    HMatrix.takeColumns top_vectors vt)

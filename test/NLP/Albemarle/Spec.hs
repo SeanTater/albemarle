@@ -12,11 +12,9 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import qualified System.IO.Streams as Streams
 import System.IO.Streams (Generator, InputStream, OutputStream)
-import qualified Data.Vector.Unboxed as Vec
+import qualified Data.Vector.Generic as Vec
 import qualified Numeric.LinearAlgebra as HMatrix
 import qualified Data.Binary as Bin
-import qualified Data.Eigen.Matrix as Eigen
-import qualified Data.Eigen.SparseMatrix as ESP
 
 import NLP.Albemarle
 import qualified NLP.Albemarle.Tokens as Tokens
@@ -24,8 +22,7 @@ import qualified NLP.Albemarle.Dictionary as Dictionary
 import qualified NLP.Albemarle.LSA as LSA
 import qualified NLP.Albemarle.Sparse as Sparse
 import qualified NLP.Albemarle.Examples.Webpage as Webpage
-import qualified NLP.Albemarle.EigenLSA as EigenLSA
-
+import System.CPUTime
 
 main :: IO ()
 main = hspec $ do
@@ -45,13 +42,25 @@ main = hspec $ do
       ids `shouldBe` little_sparse_vectors
 
   describe "Topic Analysis" $ do
-    it "Performs stochastic truncated SVD" $ do
-      matrix <- HMatrix.loadMatrix "termdoc.small.txt"
-      (u, sigma, vt) <- LSA.stochasticTruncatedSVD 50 2 matrix
+    let sad l r = Vec.sum $ Vec.zipWith (\x y -> abs $ x-y) (flat l) (flat r)
+        flat = HMatrix.flatten
+        validate u s vt ref = sad (mconcat [u, HMatrix.diag s, HMatrix.tr vt]) ref / (Vec.sum $ flat ref) < 0.01
 
-      print $ HMatrix.size u
-      print $ HMatrix.size sigma
-      print $ HMatrix.size vt
+    --it "Performs stochastic truncated SVD" $ do
+    --  matrix <- HMatrix.loadMatrix "termdoc.small.txt"
+    --  (u, sigma, vt) <- LSA.stochasticTruncatedSVD 50 2 matrix
+    --  validate u sigma vt matrix `shouldBe` True
+
+    it "Performs sparse stochastic truncated SVD with SVDLIBC" $ do
+      matrix <- HMatrix.loadMatrix "termdoc.small.nonzero.txt"
+      sp <- return $! LSA.sparsify matrix
+      time1 <- (1e-9*) . fromIntegral <$> getCPUTime :: IO Float
+      hPutStrLn stderr $ asText "starting with factorization " ++ tshow time1
+      let (u, sigma, vt) = LSA.batchLSA 50 sp
+      print (HMatrix.size u, HMatrix.size sigma, HMatrix.size vt)
+      time2 <- (1e-9*) . fromIntegral <$> getCPUTime :: IO Float
+      hPutStrLn stderr $ asText "Done with factorization " ++ tshow time2
+      validate u sigma (HMatrix.tr vt) matrix `shouldBe` True
 
     --it "#5 Performs stochastic truncated sparse SVD" $ do
     --  mat_txt <- readFile "termdoc.small.txt"

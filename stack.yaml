@@ -9,10 +9,10 @@ templates:
     author-name: Sean Gallagher
 packages:
 - '.'
-- 'haskell-eigen'
 - 'hmatrix-svdlibc'
 extra-deps:
 - lz4-0.2.3.1
 - text-1.2.2.1
-- eigen-2.1.6
+- storable-tuple-0.0.3.2
+- storable-record-0.0.3.1
 resolver: lts-6.2

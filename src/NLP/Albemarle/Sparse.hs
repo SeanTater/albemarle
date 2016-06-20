@@ -8,7 +8,7 @@ module NLP.Albemarle.Sparse
     , sparse
     , mult
     , multCol
-    , SparseMatrix
+    , SparseMatrix(..)
     , Coord
     , Coords
     ) where
@@ -24,7 +24,7 @@ import qualified Data.Binary as Bin
 import Control.Parallel.Strategies (rpar, rseq, parList, withStrategy, dot, rdeepseq)
 type Coord = (Int, Int, Double)
 type Coords = Vec.Vector Coord
-data SparseMatrix = RowMatrix Coords | ColMatrix Coords
+data SparseMatrix = RowMatrix !Coords | ColMatrix !Coords
   deriving (Show, Eq, Generic)
 instance Bin.Binary SparseMatrix
 
@@ -56,10 +56,15 @@ dense (ColMatrix mat) = dense $ RowMatrix mat -- a little fib but it works
 -- | Convert a dense matrix into a sparse one
 sparse :: HMatrix.Matrix Double -> SparseMatrix
 sparse mat =
-  RowMatrix $ Vec.fromList [ (ri, ci, val)
-    | (ri, row) <- zip [0..] lmat,
-      (ci, val) <- zip [0..] row, abs val > 1e-6 ]
-  where lmat = HMatrix.toLists mat
+  RowMatrix $ Vec.imap (\ix v -> (
+    ix `div` width,
+    ix `mod` width,
+    v)) $ Vec.convert $ HMatrix.flatten mat
+  where (width, height) = HMatrix.size mat
+  --RowMatrix $ Vec.fromList [ (ri, ci, val)
+  --  | (ri, row) <- zip [0..] lmat,
+  --    (ci, val) <- zip [0..] row, abs val > 1e-6 ]
+  --where lmat = HMatrix.toLists mat
 
 transpose :: SparseMatrix -> SparseMatrix
 transpose (RowMatrix mat) = RowMatrix $ Vec.map (\(row, col, val) -> (col, row, val)) mat
