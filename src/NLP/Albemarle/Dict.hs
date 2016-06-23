@@ -6,7 +6,6 @@ module NLP.Albemarle.Dict
     , dictifyFirstWords
     , filterDict
     , idOf
-    , remap
     , select
     , selectMatrix
     , shift
@@ -148,41 +147,71 @@ dictifyAllWords = dictify . mconcat
 dictifyFirstWords :: [[Text]] -> Dict
 dictifyFirstWords = dictifyAllWords . fmap (HashSet.toList . HashSet.fromList)
 
--- | What indices into the old matrix will generate an approximation of the new
---   matrix? This is intended for something like
--- > ((HMatrix.?) old_matrix $ select remap) == something like new_matrix
---
---   It's useful for merging termdoc-matrices, SVD's, or the like.
-select :: Remap -> UVec.Vector Int
-select (Remap orig_len new_len m) =
-  Vec.accumulate
-    (flip const) -- merge: take the second
-    (UVec.replicate new_len 0) -- start with 0's
-    (Vec.map swap $ Vec.indexed m) -- Flip the original (idx, v)
-    // [(0,0)] -- 0 always maps to 0
-
--- | Rearrange rows in a matrix to match the order in a new matrix, after a
---   dictionary merge or filter event.
-selectMatrix :: Remap -> HMatrix.Matrix Double -> HMatrix.Matrix Double
-selectMatrix remap old_matrix = (HMatrix.?) old_matrix $ Vec.toList $ select remap
-
--- | Given a Remap, convert the original word ID into the new ID
---   (might be more useful curried)
-shift :: Remap -> Int -> Int
-shift (Remap _ _ m) = maybe 0 id . (Vec.!?) m
 
 -- Just for internal use
 v2l a = Vec.toList a
 l2v a = Vec.fromList a
 
+-- | What indices into the old matrix will generate an approximation of the new
+--   matrix? This is intended for something like
+-- > ((HMatrix.?) old_matrix $ select remap) == something like new_matrix
+--
+--   It's useful for merging termdoc-matrices, SVD's, or the like.
+select :: Dict -> Dict -> [Int]
+select Dict{ids=left} Dict{ids=right} =
+  select' (v2l $ right) $ zip [0..] (v2l $ left) -- backward!
+--select :: Dict -> Dict -> [Int]
+--select left right =
+--  Vec.accumulate
+--    (flip const) -- merge: take the second
+--    (UVec.replicate new_len 0) -- start with 0's
+--    (Vec.map swap $ Vec.indexed m) -- Flip the original (idx, v)
+--    // [(0,0)] -- 0 always maps to 0
+
+-- | Compute a variant on indirect sorted set intersection. Only used for `select`
+select' :: Ord a
+  => [a] -- ^ Sorted list X
+  -> [(Int, a)] -- ^ Sorted list Y
+  -> [Int] -- ^ if X[i] in Y: then Y[Z[i]] = X[i]; else Z[i] = 0
+select' [] _  = []
+select' _ [] = []
+select' ox@(x:xs) oy@((iy,y):ys) = case compare x y of
+  LT -> 0  : select' xs oy
+  EQ -> iy : select' xs ys
+  GT ->      select' ox ys
+
+-- | Rearrange rows in a matrix to match the order in a new matrix, after a
+--   dictionary merge or filter event.
+selectMatrix :: Dict -> Dict -> HMatrix.Matrix Double -> HMatrix.Matrix Double
+selectMatrix left right old_matrix = (HMatrix.?) old_matrix $ select left right
+
+-- | Given a Remap, convert the original word ID into the new ID
+--   (might be more useful curried)
+shift :: Dict -> Dict -> Int -> Int
+shift left right i = HashMap.lookupDefault 0 i
+  $ HashMap.fromList
+  $ find'
+  (zip [0..] (v2l $ ids left))
+  (zip [0..] (v2l $ ids right))
+
+
+-- | Compute an indirect sorted set intersection. Only used for `shift`
+find' :: Ord a
+  => [(Int, a)] -- ^ Left sorted list X
+  -> [(Int, a)] -- ^ Right sorted list Y
+  -> [(Int, Int)] -- ^ Indices into X, Y representing the sorted intersection
+find' [] new  = []
+find' orig [] = []
+find' ox@((ix,x):xs) oy@((iy,y):ys) = case compare x y of
+  LT -> find' xs oy
+  EQ -> (ix, iy) : find' xs ys
+  GT -> find' ox ys
+
 -- | Take two dictionaries and create an object for converting the ID's
-remap :: Dict -> Dict -> Remap
-remap odict ndict = let
-  find [] new  = []
-  find orig [] = []
-  find ox@(x:xs) ((iy,y):ys) = if x == y then iy:find xs ys else find ox ys
-  lenids = Vec.length . ids
-  in Remap (lenids odict) (lenids ndict) $ l2v $ find (v2l $ ids odict) (v2l $ Vec.indexed $ ids ndict)
+--remap :: Dict -> Dict -> Remap
+--remap odict ndict = let
+--  lenids = Vec.length . ids
+--  in Remap (lenids odict) (lenids ndict) $ l2v $ find' (v2l $ ids odict) (v2l $ Vec.indexed $ ids ndict)
 
 -- | Union two Dictionaries, giving
 --   (1) a new dictionary,

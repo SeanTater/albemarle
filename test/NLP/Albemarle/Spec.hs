@@ -104,8 +104,12 @@ main = hspec $ do
       -- The example is the same as in "Filters dictionaries"
       let d1 = Dict.dictify $ words "Maybe not today . Maybe not tomorrow . But soon ."
       let d2 = Dict.dictify $ words "Maybe not Maybe not"
-      let remap = Dict.remap d1 d2
-      Dict.shift remap (Dict.idOf d1 "Maybe") `shouldBe` (Dict.idOf d2 "Maybe")
+      let remap = Dict.shift d1 d2
+      remap (Dict.idOf d1 "Maybe") `shouldBe` (Dict.idOf d2 "Maybe")
+      remap (Dict.idOf d1 "") `shouldBe` 0
+      remap (Dict.idOf d1 "ggiuyg") `shouldBe` 0
+      --                            \, Maybe, not
+      Dict.select d1 d2 `shouldBe` [0,    3,    4]
 
   describe "Topic Analysis" $ do
     let mean :: SVec.Vector Double -> Double
@@ -167,9 +171,9 @@ main = hspec $ do
       let (ut, s, v) =  LSA.batchLSA 100 csr
       print $ (HMatrix.size ut, HMatrix.size v)
 
-  describe "Word2vec" $ do
-    it "Generates Skip-grams" $ do
-      False `shouldBe` True
+  --describe "Word2vec" $ do
+  --  it "Generates Skip-grams" $ do
+  --    False `shouldBe` True
 
 
 
