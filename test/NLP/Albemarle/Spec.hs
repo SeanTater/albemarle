@@ -1,66 +1,144 @@
 {-# LANGUAGE OverloadedStrings, NoImplicitPrelude #-}
-import Prelude (read)
-import ClassyPrelude
+import ClassyPrelude hiding (head, tail)
+import Prelude (head, tail)
 import Test.Hspec
 import Test.QuickCheck
 import qualified Criterion.Main as Criterion
 
 import Control.Exception (evaluate)
-import Data.HashSet (HashSet)
-import qualified Data.HashSet as HashSet
-import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HashMap
-import qualified System.IO.Streams as Streams
-import System.IO.Streams (Generator, InputStream, OutputStream)
+import qualified Data.Vector.Storable as SVec
 import qualified Data.Vector.Generic as Vec
-import qualified Numeric.LinearAlgebra as HMatrix
 import qualified Data.Binary as Bin
 
 import NLP.Albemarle
 import qualified NLP.Albemarle.Tokens as Tokens
 import qualified NLP.Albemarle.Dictionary as Dictionary
+import qualified NLP.Albemarle.Dict as Dict
 import qualified NLP.Albemarle.LSA as LSA
 import qualified NLP.Albemarle.Sparse as Sparse
 import qualified NLP.Albemarle.Examples.Webpage as Webpage
 import System.CPUTime
+import Text.Printf
+import Data.Text.Encoding.Error (lenientDecode)
+import System.Directory (doesFileExist)
+
+import qualified Data.Text as Text
+import qualified Data.HashSet as HashSet
+import qualified Data.HashMap.Strict as HashMap
+import System.IO.Streams (InputStream, OutputStream)
+import qualified System.IO.Streams as Streams
+import Numeric.LinearAlgebra (Matrix)
+import qualified Numeric.LinearAlgebra as HMatrix
 
 main :: IO ()
 main = hspec $ do
   Webpage.test
-  describe "Standard Tools" $ do
+  describe "Gensim-style Dictionary" $ do
     it "#1 Tokenizes" $
       Tokens.wordTokenize weight_gain `shouldBe` weight_gain_tokens
 
     it "#3 Creates Dictionaries" $ do
-      counts <- Dictionary.countAdv 2 0.5 100 100 =<< Streams.fromList little_docs
+      counts <- Streams.fromList little_docs
+          >>= Dictionary.countAdv 2 0.5 100 100
       counts `shouldBe` little_counts
       Dictionary.assignIDs counts `shouldBe` little_ids
 
     it "#4 Applies Dictionaries" $ do
-      dict <- Dictionary.discoverAdv 2 0.5 100 100 =<< Streams.fromList little_docs
-      ids <- Streams.fromList little_docs >>= Dictionary.apply dict >>= Streams.toList
+      dict <- Streams.fromList little_docs
+          >>= Dictionary.discoverAdv 2 0.5 100 100
+      ids <- Streams.fromList little_docs
+          >>= Dictionary.apply dict
+          >>= Streams.toList
       ids `shouldBe` little_sparse_vectors
 
+  describe "Monoid-style Dictionary" $ do
+    let sentences = words <$> [
+          "Maybe not today. Maybe not tomorrow. But soon.",
+          "Pay no attention to the man behind the curtain.",
+          "Life is like a box of chocolates."]:: [[Text]]
+
+    it "Generates single dictionaries" $ do
+      let d = Dict.dictify $ head sentences
+      Dict.idOf d "tomorrow." `shouldBe` 6
+      Dict.countOf d "tomorrow." `shouldBe` 1
+      Dict.idOf d "Maybe" `shouldBe` 2
+      Dict.countOf d "Maybe" `shouldBe` 2
+      Dict.idOf d "punk?" `shouldBe` 0
+      Dict.countOf d "punk?" `shouldBe` 0
+    it "Generates all-words dictionaries" $ do
+      let d = Dict.dictifyAllWords sentences
+      Dict.idOf d "Maybe" `shouldBe` 3
+      Dict.countOf d "Maybe" `shouldBe` 2
+    it "Generates first-words dictionaries" $ do
+      let d = Dict.dictifyFirstWords sentences
+      Dict.idOf d "Maybe" `shouldBe` 3
+      Dict.countOf d "Maybe" `shouldBe` 1
+    it "Merges dictionaries" $ do
+      let d1 = Dict.dictify $ head sentences
+      let d2 = Dict.dictifyAllWords $ tail sentences
+      let d3 = Dict.dictifyAllWords sentences
+      d1 <> d2 `shouldBe` d3
+      d1 `shouldNotBe` d2 <> d3
+    it "Filters dictionaries" $ do
+      let d1 = Dict.dictify $ words "Maybe not today . Maybe not tomorrow . But soon ."
+      let d2 = Dict.dictify $ words "Maybe not Maybe not"
+      -- At least 2 times, not more than 25% (2.75), at most 100 words
+      Dict.filterDict 2 0.25 100 d1 `shouldBe` d2
+      Dict.idOf d1 "Maybe" `shouldBe` 3
+
+      let letters = [
+            "a                                     t     x y  ",
+            "a b c d e f g h i j k           q r s t u v x y z",
+            "a b c d e f g h i j k l m n o p q r s t u v x y z"]
+      let d3 = Dict.dictifyAllWords $ words <$> letters
+      let d4 = Dict.filterDict 2 0.25 15 d3
+      let uniq_letters = mconcat $ words <$> letters
+
+      for_ uniq_letters $ \letter -> case Dict.countOf d2 letter of
+        1 -> Dict.countOf d3 letter `shouldBe` 0 -- delete all
+        -- 2 is undefined. It should be uniformly distributed!
+        -- So we _don't_ just want r, s, u, v, and z to be deleted.
+        3 -> Dict.countOf d3 letter `shouldBe` 3 -- keep all
+        otherwise -> True `shouldBe` True
+    it "Remaps dictionaries" $ do
+      -- The example is the same as in "Filters dictionaries"
+      let d1 = Dict.dictify $ words "Maybe not today . Maybe not tomorrow . But soon ."
+      let d2 = Dict.dictify $ words "Maybe not Maybe not"
+      let remap = Dict.remap d1 d2
+      Dict.shift remap (Dict.idOf d1 "Maybe") `shouldBe` (Dict.idOf d2 "Maybe")
+
   describe "Topic Analysis" $ do
-    let sad l r = Vec.sum $ Vec.zipWith (\x y -> abs $ x-y) (flat l) (flat r)
+    let mean :: SVec.Vector Double -> Double
+        mean x = Vec.sum x / (fromIntegral $ Vec.length x)
+        -- Root mean squared error
+        rmse l r = mean (Vec.zipWith (\x y -> (x-y)**2) (flat l) (flat r)) ** 0.5
+        -- Mean signal to noise ratio
+        -- - we tank the PSNR because most things are really close to 0
+        -- - in fact we avoid handling 0's altogether
+        msnr l r = mean $ Vec.zipWith (\x y -> abs $ x-y / max 1 (min x y)) (flat l) (flat r)
         flat = HMatrix.flatten
-        validate u s vt ref = sad (mconcat [u, HMatrix.diag s, HMatrix.tr vt]) ref / (Vec.sum $ flat ref) < 0.01
+        mult u s vt = mconcat [u, HMatrix.diag s, HMatrix.tr vt] :: HMatrix.Matrix Double
 
     --it "Performs stochastic truncated SVD" $ do
     --  matrix <- HMatrix.loadMatrix "termdoc.small.txt"
     --  (u, sigma, vt) <- LSA.stochasticTruncatedSVD 50 2 matrix
     --  validate u sigma vt matrix `shouldBe` True
 
-    it "Performs sparse stochastic truncated SVD with SVDLIBC" $ do
+    it "performs sparse stochastic truncated SVD with SVDLIBC" $ do
+      let termdoc = "termdoc.small.nonzero.txt"
+      [zippedfile, originalfile] <- sequence $ doesFileExist <$> [termdoc++".gz", termdoc]
+      when ( zippedfile && not originalfile ) $
+        Streams.withFileAsInput "termdoc.small.nonzero.txt.gz" $ \infl ->
+          Streams.withFileAsOutput "termdoc.small.nonzero.txt" $ \outfl ->
+            Streams.gunzip infl >>= Streams.connectTo outfl
       matrix <- HMatrix.loadMatrix "termdoc.small.nonzero.txt"
-      sp <- return $! LSA.sparsify matrix
-      time1 <- (1e-9*) . fromIntegral <$> getCPUTime :: IO Float
-      hPutStrLn stderr $ asText "starting with factorization " ++ tshow time1
-      let (u, sigma, vt) = LSA.batchLSA 50 sp
-      print (HMatrix.size u, HMatrix.size sigma, HMatrix.size vt)
-      time2 <- (1e-9*) . fromIntegral <$> getCPUTime :: IO Float
-      hPutStrLn stderr $ asText "Done with factorization " ++ tshow time2
-      validate u sigma (HMatrix.tr vt) matrix `shouldBe` True
+      let (u, sigma, vt) = LSA.batchLSA 100 $ LSA.sparsify matrix
+      -- typically -> RMSE: 0.06464712163523892
+      -- printf "RMSE: %f\n" $ rmse (mconcat [u, HMatrix.diag sigma, HMatrix.tr vt]) matrix
+      rmse (mult u sigma vt) matrix < 0.12 `shouldBe` True
+      -- typically -> MSNR: 0.010548326765305554
+      -- printf "MSNR: %f\n" $ msnr (mconcat [u, HMatrix.diag sigma, HMatrix.tr vt]) matrix
+      msnr (mult u sigma vt) matrix < 0.02 `shouldBe` True
 
     --it "#5 Performs stochastic truncated sparse SVD" $ do
     --  mat_txt <- readFile "termdoc.small.txt"
@@ -70,6 +148,24 @@ main = hspec $ do
 
     --  print $ Eigen.dims u
     --  Eigen.rows u `shouldBe` 1000
+
+    it "performs topic analysis starting from text" $ do
+      dict <- Streams.withFileAsInput "kjv.verses.txt.gz" $ \file ->
+            Streams.gunzip file
+            >>= Streams.lines
+            >>= Streams.decodeUtf8With lenientDecode
+            >>= Streams.map Tokens.wordTokenize
+            >>= Dictionary.discover
+      let width = Dictionary.width dict
+      csr <- Streams.withFileAsInput "kjv.verses.txt.gz" $ \file ->
+            Streams.gunzip file
+            >>= Streams.lines
+            >>= Streams.decodeUtf8With lenientDecode
+            >>= Streams.map Tokens.wordTokenize
+            >>= Dictionary.apply dict
+            >>= LSA.docsToCSR width
+      let (ut, s, v) =  LSA.batchLSA 100 csr
+      print $ (HMatrix.size ut, HMatrix.size v)
 
   describe "Word2vec" $ do
     it "Generates Skip-grams" $ do

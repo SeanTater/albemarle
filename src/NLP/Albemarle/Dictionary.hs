@@ -6,6 +6,7 @@ module NLP.Albemarle.Dictionary
     , countAdv
     , discover
     , discoverAdv
+    , width
     ) where
 import ClassyPrelude
 import NLP.Albemarle
@@ -16,11 +17,8 @@ import qualified Data.Vector.Unboxed as Vec
 import Debug.Trace
 import System.IO.Streams (Generator, InputStream, OutputStream)
 
-type SparseMap = HashMap Int Int
 type Dictionary = HashMap Text Int
 type Histogram = HashMap Text Int
-
--- |
 
 -- | Convert a list of words into a sparse matrix of ID's given a dictionary
 apply :: Dictionary -> InputStream [Text] -> IO (InputStream BagOfWords)
@@ -31,6 +29,9 @@ apply dict = Streams.map $ sparseMapToVec . HashMap.fromListWith (+) . map (\tok
 -- | Count words and then assign them IDs (a convenience method)
 discover :: InputStream [Text] -> IO Dictionary
 discover docstream = assignIDs <$> count docstream
+
+width :: Dictionary -> Int
+width = (1+) . foldl' max 0 . HashMap.elems
 
 -- | Count words and then assign them IDs (a convenience method)
 discoverAdv :: Int -> Double -> Int -> Int -> InputStream [Text] -> IO Dictionary

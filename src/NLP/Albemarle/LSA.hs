@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings, NoImplicitPrelude, BangPatterns #-}
 module NLP.Albemarle.LSA
     ( batchLSA
+    , docsToCSR
     , stochasticTruncatedSVD
     , standardLSA
     , SVD.sparsify
@@ -11,7 +12,10 @@ import Data.List (cycle)
 import ClassyPrelude hiding ((<>)) -- this <> is for semigroups (usually better)
 import Data.Monoid ((<>)) -- ... but HMatrix only has Monoid
 import qualified NLP.Albemarle.Sparse as Sparse
-import qualified Data.Vector.Unboxed as Vec
+import qualified Data.Vector.Generic as Vec
+import qualified Data.Vector.Unboxed as UVec
+import qualified Data.Vector.Storable as SVec
+import Foreign.C.Types
 import qualified Data.HashMap.Strict as HashMap
 import Numeric.LinearAlgebra (Matrix, tr) -- transpose
 import qualified Numeric.LinearAlgebra as HMatrix
@@ -31,6 +35,21 @@ type LSAModel = Matrix Double
 --  doclist <- Streams.toList docs
 --  let (u, _, _) = batchLSA num_topics $ Sparse.fromDocuments doclist
 --  return u
+docsToCSR :: Int -> InputStream BagOfWords -> IO HMatrix.CSR
+docsToCSR width docstream = do
+  docs <- Streams.toList docstream
+  let
+    convI = Vec.map fromIntegral . Vec.convert
+    counts = Vec.map (fromIntegral.snd) <$> docs :: [UVec.Vector Double]
+    concatcounts = Vec.concat counts :: UVec.Vector Double
+    storcounts = Vec.convert concatcounts :: SVec.Vector Double
+  return $ HMatrix.CSR {
+    HMatrix.csrVals = storcounts,
+    HMatrix.csrCols = convI $ Vec.concat $ Vec.map ((+1).fst) <$> docs,
+    HMatrix.csrRows = convI $ Vec.scanl (+) 0 $ Vec.fromList $ Vec.length <$> docs,
+    HMatrix.csrNCols = width,
+    HMatrix.csrNRows = length docs
+  }
 
 -- | SVD with some transposes, for convenience and speed
 -- Normally (U, Sigma, V^T) = svd A, but then the rows are topics and the cols
