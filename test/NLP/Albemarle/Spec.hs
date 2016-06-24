@@ -111,7 +111,7 @@ main = hspec $ do
       --                            \, Maybe, not
       Dict.select d1 d2 `shouldBe` [0,    3,    4]
 
-  describe "Topic Analysis" $ do
+  describe "Streaming (semi-Gensim) Style Topic Analysis" $ do
     let mean :: SVec.Vector Double -> Double
         mean x = Vec.sum x / (fromIntegral $ Vec.length x)
         -- Root mean squared error
@@ -167,9 +167,14 @@ main = hspec $ do
             >>= Streams.decodeUtf8With lenientDecode
             >>= Streams.map Tokens.wordTokenize
             >>= Dictionary.apply dict
-            >>= LSA.docsToCSR width
+            >>= Streams.toList
+            >>= return . LSA.docsToCSR width
       let (ut, s, v) =  LSA.batchLSA 100 csr
       print $ (HMatrix.size ut, HMatrix.size v)
+
+  describe "Monoid style Topic Analysis" $ do
+    it "Creates LSA Models" $ do
+      True `shouldBe` True
 
   --describe "Word2vec" $ do
   --  it "Generates Skip-grams" $ do
@@ -207,8 +212,8 @@ little_docs = words <$> [
   "eighteen",
   ""]
 
-little_sparse_vectors :: [BagOfWords]
-little_sparse_vectors = Vec.fromList <$> [
+little_sparse_vectors :: [SparseVector]
+little_sparse_vectors = [
   [(0, 2), (1, 1), (2, 1), (3, 1)],
   [(0, 2), (1, 1), (2, 1), (3, 1)],
   [(0, 6)],

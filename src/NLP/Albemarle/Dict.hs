@@ -1,14 +1,19 @@
 {-# LANGUAGE OverloadedStrings, NoImplicitPrelude #-}
 module NLP.Albemarle.Dict
-    ( countOf
-    , dictify
-    , dictifyAllWords
-    , dictifyFirstWords
-    , filterDict
+    ( -- * Using Dictionaries
+    Dict
+    , countOf
     , idOf
     , select
     , selectMatrix
     , shift
+    -- * Creating Dictionaries
+    , dictify
+    , dictifyAllWords
+    , dictifyFirstWords
+
+    -- * Modifying Dictionaries
+    , filterDict
     , union
     ) where
 import ClassyPrelude hiding (union)
@@ -160,13 +165,6 @@ l2v a = Vec.fromList a
 select :: Dict -> Dict -> [Int]
 select Dict{ids=left} Dict{ids=right} =
   select' (v2l $ right) $ zip [0..] (v2l $ left) -- backward!
---select :: Dict -> Dict -> [Int]
---select left right =
---  Vec.accumulate
---    (flip const) -- merge: take the second
---    (UVec.replicate new_len 0) -- start with 0's
---    (Vec.map swap $ Vec.indexed m) -- Flip the original (idx, v)
---    // [(0,0)] -- 0 always maps to 0
 
 -- | Compute a variant on indirect sorted set intersection. Only used for `select`
 select' :: Ord a
@@ -207,16 +205,8 @@ find' ox@((ix,x):xs) oy@((iy,y):ys) = case compare x y of
   EQ -> (ix, iy) : find' xs ys
   GT -> find' ox ys
 
--- | Take two dictionaries and create an object for converting the ID's
---remap :: Dict -> Dict -> Remap
---remap odict ndict = let
---  lenids = Vec.length . ids
---  in Remap (lenids odict) (lenids ndict) $ l2v $ find' (v2l $ ids odict) (v2l $ Vec.indexed $ ids ndict)
-
--- | Union two Dictionaries, giving
---   (1) a new dictionary,
---   (2) a way to map ID's from the left dictionary to the new dictionary
---   (3) a way to map ID's from the right dictionary to the new dictionary.
+-- | Union two Dicts (a synonym for mappend). Dict's of huge corpora can be a
+--   memory hog, so consider using filterDict occasionally to manage that.
 union :: Dict -> Dict -> Dict
 union ldict rdict = Dict {
     counts = counts ldict <> counts rdict,

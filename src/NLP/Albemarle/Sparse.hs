@@ -29,9 +29,9 @@ data SparseMatrix = RowMatrix !Coords | ColMatrix !Coords
 instance Bin.Binary SparseMatrix
 
 -- | Create a sparse matrix from rows
-fromDocuments :: [BagOfWords] -> SparseMatrix
+fromDocuments :: [SparseVector] -> SparseMatrix
 fromDocuments rows = RowMatrix $ Vec.concat [ docToSparseRow docid doc | (docid, doc) <- zip [0..] rows ]
-  where docToSparseRow docid = Vec.map (\(colid, val) -> (docid, colid, fromIntegral val))
+  where docToSparseRow docid = Vec.map (\(colid, val) -> (docid, colid, fromIntegral val)) . Vec.fromList
 
 -- | Find the size of a sparse matrix
 size :: SparseMatrix -> (Int, Int)
