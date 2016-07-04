@@ -1,9 +1,10 @@
-{-# LANGUAGE OverloadedStrings, NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings, NoImplicitPrelude, BangPatterns #-}
 import ClassyPrelude hiding (head, tail)
 import Prelude (head, tail)
 import Test.Hspec
 import Test.QuickCheck
 import qualified Criterion.Main as Criterion
+import Control.Lens
 
 import Control.Exception (evaluate)
 import qualified Data.Vector.Storable as SVec
@@ -12,10 +13,10 @@ import qualified Data.Binary as Bin
 
 import NLP.Albemarle
 import qualified NLP.Albemarle.Tokens as Tokens
-import qualified NLP.Albemarle.Dictionary as Dictionary
+import NLP.Albemarle.Dict (Dict, counts, ids, hist)
 import qualified NLP.Albemarle.Dict as Dict
+import NLP.Albemarle.LSA (termvectors, topicweights)
 import qualified NLP.Albemarle.LSA as LSA
-import qualified NLP.Albemarle.Sparse as Sparse
 import qualified NLP.Albemarle.Examples.Webpage as Webpage
 import System.CPUTime
 import Text.Printf
@@ -33,29 +34,13 @@ import qualified Numeric.LinearAlgebra as HMatrix
 main :: IO ()
 main = hspec $ do
   Webpage.test
-  describe "Gensim-style Dictionary" $ do
-    it "#1 Tokenizes" $
-      Tokens.wordTokenize weight_gain `shouldBe` weight_gain_tokens
 
-    it "#3 Creates Dictionaries" $ do
-      counts <- Streams.fromList little_docs
-          >>= Dictionary.countAdv 2 0.5 100 100
-      counts `shouldBe` little_counts
-      Dictionary.assignIDs counts `shouldBe` little_ids
-
-    it "#4 Applies Dictionaries" $ do
-      dict <- Streams.fromList little_docs
-          >>= Dictionary.discoverAdv 2 0.5 100 100
-      ids <- Streams.fromList little_docs
-          >>= Dictionary.apply dict
-          >>= Streams.toList
-      ids `shouldBe` little_sparse_vectors
+  let sentences = words <$> [
+        "Maybe not today. Maybe not tomorrow. But soon.",
+        "Pay no attention to the man behind the curtain.",
+        "Life is like a box of chocolates."]:: [[Text]]
 
   describe "Monoid-style Dictionary" $ do
-    let sentences = words <$> [
-          "Maybe not today. Maybe not tomorrow. But soon.",
-          "Pay no attention to the man behind the curtain.",
-          "Life is like a box of chocolates."]:: [[Text]]
 
     it "Generates single dictionaries" $ do
       let d = Dict.dictify $ head sentences
@@ -123,11 +108,6 @@ main = hspec $ do
         flat = HMatrix.flatten
         mult u s vt = mconcat [u, HMatrix.diag s, HMatrix.tr vt] :: HMatrix.Matrix Double
 
-    --it "Performs stochastic truncated SVD" $ do
-    --  matrix <- HMatrix.loadMatrix "termdoc.small.txt"
-    --  (u, sigma, vt) <- LSA.stochasticTruncatedSVD 50 2 matrix
-    --  validate u sigma vt matrix `shouldBe` True
-
     it "performs sparse stochastic truncated SVD with SVDLIBC" $ do
       let termdoc = "termdoc.small.nonzero.txt"
       [zippedfile, originalfile] <- sequence $ doesFileExist <$> [termdoc++".gz", termdoc]
@@ -144,43 +124,44 @@ main = hspec $ do
       -- printf "MSNR: %f\n" $ msnr (mconcat [u, HMatrix.diag sigma, HMatrix.tr vt]) matrix
       msnr (mult u sigma vt) matrix < 0.02 `shouldBe` True
 
-    --it "#5 Performs stochastic truncated sparse SVD" $ do
-    --  mat_txt <- readFile "termdoc.small.txt"
-    --  let mat = fmap (fmap read . words) $ lines mat_txt
-    --  let smat = ESP.fromDenseList mat
-    --  u <- EigenLSA.eigenLSA 50 2 smat
-
-    --  print $ Eigen.dims u
-    --  Eigen.rows u `shouldBe` 1000
-
     it "performs topic analysis starting from text" $ do
-      dict <- Streams.withFileAsInput "kjv.verses.txt.gz" $ \file ->
-            Streams.gunzip file
-            >>= Streams.lines
-            >>= Streams.decodeUtf8With lenientDecode
-            >>= Streams.map Tokens.wordTokenize
-            >>= Dictionary.discover
-      let width = Dictionary.width dict
-      csr <- Streams.withFileAsInput "kjv.verses.txt.gz" $ \file ->
-            Streams.gunzip file
-            >>= Streams.lines
-            >>= Streams.decodeUtf8With lenientDecode
-            >>= Streams.map Tokens.wordTokenize
-            >>= Dictionary.apply dict
-            >>= Streams.toList
-            >>= return . LSA.docsToCSR width
-      let (ut, s, v) =  LSA.batchLSA 100 csr
-      print $ (HMatrix.size ut, HMatrix.size v)
+      (final_dict, model) <- Streams.withFileAsInput "kjv.verses.txt.gz" $ \file ->
+        Streams.gunzip file
+        >>= Streams.lines
+        >>= Streams.decodeUtf8With lenientDecode
+        >>= Streams.map Tokens.wordTokenize
+        >>= Streams.chunkList 373 -- Yep, I'm making this stuff up.
+        >>= Streams.map (\chunk -> let
+          dict = Dict.dictifyAllWords chunk
+          sparsem = Dict.asSparseMatrix dict chunk
+          lsa = LSA.lsa 10 sparsem
+          in (dict, lsa))
+        >>= Streams.fold (\(!d1, !lsa1) (d2, lsa2) -> let
+          d3 = Dict.filterDict 2 0.5 100 $ d1 <> d2
+          lsa3 = LSA.rebase d1 d3 lsa1 <> LSA.rebase d2 d3 lsa2
+          in (d3, lsa3)) (mempty, mempty)
+
+      -- It should use all 100 words allowed plus the unknown
+      HashMap.size (final_dict^.counts.hist) `shouldBe` 101
+      -- It should have a full size LSA as well
+      HMatrix.size (model^.termvectors) `shouldBe` (10, 101)
+      -- Plus topic weights
+      HMatrix.size (model^.topicweights) `shouldBe` 10
 
   describe "Monoid style Topic Analysis" $ do
-    it "Creates LSA Models" $ do
-      True `shouldBe` True
+    it "creates LSA Models" $ do
+      let dict = Dict.dictifyAllWords sentences
+      let lsavecs = LSA.lsa 2
+            $ Dict.asSparseMatrix dict sentences
+      -- Sadly, I can't think of much to assert in this test so let's use size
+      -- There are 21 unique words plus one unknown
+      HMatrix.size (lsavecs^.termvectors) `shouldBe` (2,22)
+      -- It should use both topics
+      HMatrix.size (lsavecs^.topicweights) `shouldBe` 2
 
   --describe "Word2vec" $ do
   --  it "Generates Skip-grams" $ do
   --    False `shouldBe` True
-
-
 
 -- Thanks to Ying He for the following example text and proper
 -- tokenizations.
@@ -201,30 +182,3 @@ weight_gain_tokens = words $ unwords [
   "growth ( i.e . those who showed gains in weight or length between 0 - 2 yr",
   "by > 0.67 SD score ) had higher IGF - I levels than other children",
   "( P = 0.02 ) ."] -- i.e. is wrong, but we're calling this close enough.
-
-little_docs :: [[Text]]
-little_docs = words <$> [
-  "one two three four five",
-  "one two three four five",
-  "one two seven eight nine ten",
-  "one two five twelve thirteen fourteen",
-  "one two fifteen sixteen seventeen",
-  "eighteen",
-  ""]
-
-little_sparse_vectors :: [SparseVector]
-little_sparse_vectors = [
-  [(0, 2), (1, 1), (2, 1), (3, 1)],
-  [(0, 2), (1, 1), (2, 1), (3, 1)],
-  [(0, 6)],
-  [(0, 5), (1, 1)],
-  [(0, 5)],
-  [(0, 1)],
-  []
-  ]
-
-little_counts :: HashMap Text Int
-little_counts = HashMap.fromList [("three", 2), ("four", 2), ("five", 3)]
-
-little_ids :: HashMap Text Int
-little_ids = HashMap.fromList [("three", 3), ("four", 2), ("five", 1)]

@@ -1,12 +1,21 @@
-{-# LANGUAGE OverloadedStrings, NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings, NoImplicitPrelude, TemplateHaskell #-}
 module NLP.Albemarle.Dict
     ( -- * Using Dictionaries
-    Dict
+    Dict(..)
+    , counts
+    , ids
+    , hist
+    , Histogram(..)
     , countOf
     , idOf
     , select
     , selectMatrix
     , shift
+    , size
+    , asSparseMatrix
+    , asSparseVector
+    , asDenseVector
+
     -- * Creating Dictionaries
     , dictify
     , dictifyAllWords
@@ -43,9 +52,9 @@ import System.IO.Streams (InputStream, OutputStream)
 import qualified System.IO.Streams as Streams
 import Numeric.LinearAlgebra (Matrix)
 import qualified Numeric.LinearAlgebra as HMatrix
-
+import Control.Lens.Operators
+import Control.Lens.TH
 import Data.Tuple (swap)
-import Debug.Trace
 
 {-| A simple, full dictionary, which maintains:
 
@@ -63,20 +72,17 @@ the unknown word. This has some advantages:
     or use ((Vector.//) vec [(0,0)]) to 0 it out.
 |-}
 
-
-ffmap :: (Functor f, Functor f1) => (a -> b) -> f (f1 a) -> f (f1 b)
-ffmap = fmap.fmap
-
-type Tokens = [Text]
-newtype Histogram = Histogram (HashMap Text Int)
-  deriving (Show, Eq)
-type Ids = BVec.Vector Text
-data Remap = Remap Int Int (UVec.Vector Int)
-  deriving (Show, Eq)
-data Dict = Dict {
-  counts :: Histogram,
-  ids :: Ids
+newtype Histogram = Histogram {
+  _hist :: HashMap Text Int
 } deriving (Show, Eq)
+type Ids = BVec.Vector Text
+data Dict = Dict {
+  _counts :: Histogram,
+  _ids :: Ids
+} deriving (Show, Eq)
+
+makeLenses ''Dict
+makeLenses ''Histogram
 
 instance Monoid Histogram where
   mempty = Histogram $ HashMap.singleton "" 0
@@ -85,12 +91,11 @@ instance Semigroup Histogram where
   (<>) = mappend
 
 instance Monoid Dict where
-  mempty = Dict {counts=mempty, ids=Vec.singleton ""}
+  mempty = Dict {_counts=mempty, _ids=Vec.singleton ""}
   mappend = union
 instance Semigroup Dict where
   (<>) = mappend
 
-unhist (Histogram hist) = hist
 sortNewV v = Vec.modify (VSort.sort) $ Vec.fromList v
 
 -- | Filter the dictionary: remove stopwords and hepaxes.
@@ -100,19 +105,23 @@ filterDict :: Int   -- ^ the minimum word occurences (to remove rare words)
   -> Dict   -- ^ the original dictionary
   -> Dict   -- ^ new dictionary, and a Remap from original to new
 filterDict min_thresh max_fraction max_words dict =
-  let max_thresh = floor $ max_fraction * (fromIntegral $ sum $ HashMap.elems $ unhist $ counts dict)
+  let max_thresh = floor $ max_fraction * (
+        fromIntegral
+        $ sum
+        $ HashMap.elems
+        $ dict^.counts.hist )
       new_counts =
         HashMap.fromList
-        $ cons ("", 0)
+        -- This makes sure we preserve the unknown if we can, otherwise 0.
+        $ cons ("", HashMap.lookupDefault 0 "" $ dict^.counts.hist)
         $ take max_words
         $ sortOn (negate.snd)
         $ HashMap.toList
         $ HashMap.filter (\v -> min_thresh<=v && v<=max_thresh)
-        $ (\(Histogram hist) -> hist)
-        $ counts dict
+        $ dict^.counts.hist
   in Dict {
-    counts = Histogram new_counts,
-    ids = sortNewV $ HashMap.keys new_counts
+    _counts = Histogram new_counts,
+    _ids = sortNewV $ HashMap.keys new_counts
   }
 
 -- | Get from a dictionary how many times a word was encountered.
@@ -122,21 +131,56 @@ filterDict min_thresh max_fraction max_words dict =
 --   may not mean it doesn't exist in the corpus; it might have been trimmed
 --   because it was too common, too rare, or there wasn't enough memory
 countOf :: Dict -> Text -> Int
-countOf Dict{counts=hist} word = maybe 0 id $ HashMap.lookup word $ unhist hist
+countOf dict word = maybe 0 id $ HashMap.lookup word $ dict^.counts.hist
 
 -- | Get the ID of a word from a Dictionary. Unknown words get a 0 (by design).
 idOf :: Dict -> Text -> Int
-idOf Dict{ids=vec} word = runST $ do
+idOf Dict{_ids=vec} word = runST $ do
   mvec <- Vec.thaw vec
   idx <- VSearch.binarySearch mvec word -- Why is this not pure?!
   return $! maybe 0 (\it-> if it == word then idx else 0) $ (Vec.!?) vec idx
 
--- | Create a dictionary from a single document
+-- | Make a sparse vector representing one document using this dict.
+--
+--   The length of the vector is the size of the vocabulary, plus one. Keep in
+--   mind that the length is determined at runtime so pay attention that you do
+--   not use vectors from different dictionaries together lest you cause
+--   runtime errors.
+asSparseVector :: Dict -> [Text] -> SparseVector
+asSparseVector dict = SparseVector (Vec.length $ dict^.ids)
+  . sort -- Strictly speaking this isn't always necessary but it is for LSA
+  . cons (0,0.0) -- This shows we count from 0 (it just happens to be 0.0 there)
+  . HashMap.toList
+  . HashMap.fromListWith (+)
+  . fmap (\w-> (idOf dict w, 1.0))
+
+-- | Make a sparse matrix representing one document using this dict.
+--
+--   The width of the matrix is the size of the vocabulary, plus one. Keep in
+--   mind that the length is determined at runtime so pay attention that you do
+--   not use matrices from different dictionaries together lest you cause
+--   runtime errors.
+asSparseMatrix :: Dict -> [[Text]] -> SparseMatrix
+asSparseMatrix dict = SparseMatrix (Vec.length $ dict^.ids)
+  . fmap (asSparseVector dict)
+
+-- | Make a dense vector representing one document using this dict.
+--
+--   The length of the vector is the size of the vocabulary, plus one. Keep in
+--   mind that the length is determined at runtime so pay attention that you do
+--   not use vectors from different dictionaries together lest you cause
+--   runtime errors.
+asDenseVector :: Dict -> [Text] -> DenseVector
+asDenseVector dict =
+  Vec.accum (+) (Vec.replicate (Vec.length $ dict^.ids) 0)
+  . fmap (\w-> (idOf dict w, 1.0))
+
+-- | O(n + v log v) Create a dictionary from a single document
 --   (also consider the [[Text]] -> Dictionary alternatives, they may be faster)
 dictify :: [Text] -> Dict
 dictify wds = Dict {
-  counts = Histogram cts,
-  ids = sortNewV $ HashMap.keys cts
+  _counts = Histogram cts,
+  _ids = sortNewV $ HashMap.keys cts
 } where
     cts = HashMap.fromListWith (+)
           $ cons ("", 0) -- This is to preserve the 0-is-nothing property
@@ -152,6 +196,13 @@ dictifyAllWords = dictify . mconcat
 dictifyFirstWords :: [[Text]] -> Dict
 dictifyFirstWords = dictifyAllWords . fmap (HashSet.toList . HashSet.fromList)
 
+-- | O(1) Retrieve the number of unique words in the vocabulary
+size :: Dict -> Int
+size dict = HashMap.size $ dict^.counts.hist
+
+-- | O(v) Retrieve the total number of (non-unique) words processed
+support :: Dict -> Int
+support dict = HashMap.foldl' (+) 0 $ dict^.counts.hist
 
 -- Just for internal use
 v2l a = Vec.toList a
@@ -163,8 +214,10 @@ l2v a = Vec.fromList a
 --
 --   It's useful for merging termdoc-matrices, SVD's, or the like.
 select :: Dict -> Dict -> [Int]
-select Dict{ids=left} Dict{ids=right} =
-  select' (v2l $ right) $ zip [0..] (v2l $ left) -- backward!
+select left right = let
+  l = zip [0..] $ v2l $ left^.ids
+  r = v2l $ right^.ids
+  in select' r l -- backward!
 
 -- | Compute a variant on indirect sorted set intersection. Only used for `select`
 select' :: Ord a
@@ -172,7 +225,7 @@ select' :: Ord a
   -> [(Int, a)] -- ^ Sorted list Y
   -> [Int] -- ^ if X[i] in Y: then Y[Z[i]] = X[i]; else Z[i] = 0
 select' [] _  = []
-select' _ [] = []
+select' ox [] = map (const 0) ox -- Must stay in lock step with X
 select' ox@(x:xs) oy@((iy,y):ys) = case compare x y of
   LT -> 0  : select' xs oy
   EQ -> iy : select' xs ys
@@ -189,8 +242,8 @@ shift :: Dict -> Dict -> Int -> Int
 shift left right i = HashMap.lookupDefault 0 i
   $ HashMap.fromList
   $ find'
-  (zip [0..] (v2l $ ids left))
-  (zip [0..] (v2l $ ids right))
+  (zip [0..] (v2l $ left^.ids))
+  (zip [0..] (v2l $ right^.ids))
 
 
 -- | Compute an indirect sorted set intersection. Only used for `shift`
@@ -208,9 +261,11 @@ find' ox@((ix,x):xs) oy@((iy,y):ys) = case compare x y of
 -- | Union two Dicts (a synonym for mappend). Dict's of huge corpora can be a
 --   memory hog, so consider using filterDict occasionally to manage that.
 union :: Dict -> Dict -> Dict
-union ldict rdict = Dict {
-    counts = counts ldict <> counts rdict,
-    ids = Vec.fromList $ OList.nub $ Vec.toList $
-      Vec.modify (VSort.sort) $
-      (ids ldict <> ids rdict)
+union left right = Dict {
+    _counts = left^.counts <> right^.counts,
+    _ids = Vec.fromList
+          $ OList.nub
+          $ Vec.toList
+          $ Vec.modify (VSort.sort)
+          $ (left^.ids <> right^.ids)
   }

@@ -13,7 +13,7 @@ module NLP.Albemarle.Sparse
     , Coords
     ) where
 import ClassyPrelude
-import NLP.Albemarle
+import NLP.Albemarle hiding (SparseMatrix)
 import GHC.Generics (Generic)
 import Data.Vector.Binary
 import qualified Data.Vector.Unboxed as Vec

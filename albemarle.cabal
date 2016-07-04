@@ -19,9 +19,7 @@ library
   exposed-modules:     NLP.Albemarle
                      , NLP.Albemarle.Tokens
                      , NLP.Albemarle.Dict
-                     , NLP.Albemarle.Dictionary
                      , NLP.Albemarle.LSA
-                     , NLP.Albemarle.Sparse
                      , NLP.Albemarle.Scrape
   build-depends:       base >= 4.7 && < 5
                      , text >= 1.2.2
