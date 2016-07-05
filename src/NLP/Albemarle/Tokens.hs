@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings, NoImplicitPrelude #-}
 module NLP.Albemarle.Tokens
-    ( wordTokenize
+    ( icuTokenize
+    , whitespaceTokenize
+    , wordTokenize
     ) where
 import ClassyPrelude
 import NLP.Albemarle
@@ -17,5 +19,9 @@ wordTokenize = icuTokenize
 whitespaceTokenize :: Text -> [Text]
 whitespaceTokenize = Text.words
 
+-- | Tokenize text according to the Unicode standard, nut filter out spaces.
 icuTokenize :: Text -> [Text]
-icuTokenize line = filter (\x -> not $ x==" ") $ ICU.brkBreak <$> ICU.breaks (ICU.breakWord ICU.Current) line
+icuTokenize line =
+  filter (\x -> not $ x==" ")
+  $ ICU.brkBreak
+  <$> ICU.breaks (ICU.breakWord ICU.Current) line

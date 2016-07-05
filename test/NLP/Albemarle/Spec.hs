@@ -4,7 +4,7 @@ import Prelude (head, tail)
 import Test.Hspec
 import Test.QuickCheck
 import qualified Criterion.Main as Criterion
-import Control.Lens
+import Lens.Micro
 
 import Control.Exception (evaluate)
 import qualified Data.Vector.Storable as SVec
@@ -84,13 +84,13 @@ main = hspec $ do
         -- 2 is undefined. It should be uniformly distributed!
         -- So we _don't_ just want r, s, u, v, and z to be deleted.
         3 -> Dict.countOf d3 letter `shouldBe` 3 -- keep all
-        otherwise -> True `shouldBe` True
+        _ -> True `shouldBe` True
     it "Remaps dictionaries" $ do
       -- The example is the same as in "Filters dictionaries"
       let d1 = Dict.dictify $ words "Maybe not today . Maybe not tomorrow . But soon ."
       let d2 = Dict.dictify $ words "Maybe not Maybe not"
       let remap = Dict.shift d1 d2
-      remap (Dict.idOf d1 "Maybe") `shouldBe` (Dict.idOf d2 "Maybe")
+      remap (Dict.idOf d1 "Maybe") `shouldBe` Dict.idOf d2 "Maybe"
       remap (Dict.idOf d1 "") `shouldBe` 0
       remap (Dict.idOf d1 "ggiuyg") `shouldBe` 0
       --                            \, Maybe, not
@@ -98,7 +98,7 @@ main = hspec $ do
 
   describe "Streaming (semi-Gensim) Style Topic Analysis" $ do
     let mean :: SVec.Vector Double -> Double
-        mean x = Vec.sum x / (fromIntegral $ Vec.length x)
+        mean x = Vec.sum x / fromIntegral (Vec.length x)
         -- Root mean squared error
         rmse l r = mean (Vec.zipWith (\x y -> (x-y)**2) (flat l) (flat r)) ** 0.5
         -- Mean signal to noise ratio
@@ -134,21 +134,21 @@ main = hspec $ do
         >>= Streams.map (\chunk -> let
           dict = Dict.dictifyAllWords chunk
           sparsem = Dict.asSparseMatrix dict chunk
-          lsa = LSA.lsa 10 sparsem
+          lsa = LSA.lsa 222 sparsem -- Too many topics. Should not cause errors
           in (dict, lsa))
         >>= Streams.fold (\(!d1, !lsa1) (d2, lsa2) -> let
-          d3 = Dict.filterDict 2 0.5 100 $ d1 <> d2
+          d3 = Dict.filterDict 2 0.5 100 $ d1 <> d2 -- Not nearly enough words
           lsa3 = LSA.rebase d1 d3 lsa1 <> LSA.rebase d2 d3 lsa2
           in (d3, lsa3)) (mempty, mempty)
 
       -- It should use all 100 words allowed plus the unknown
       HashMap.size (final_dict^.counts.hist) `shouldBe` 101
       -- It should have a full size LSA as well
-      HMatrix.size (model^.termvectors) `shouldBe` (10, 101)
+      HMatrix.size (model^.termvectors) `shouldBe` (222, 101)
       -- Plus topic weights
-      HMatrix.size (model^.topicweights) `shouldBe` 10
+      HMatrix.size (model^.topicweights) `shouldBe` 222
 
-  describe "Monoid style Topic Analysis" $ do
+  describe "Monoid style Topic Analysis" $
     it "creates LSA Models" $ do
       let dict = Dict.dictifyAllWords sentences
       let lsavecs = LSA.lsa 2
@@ -165,20 +165,20 @@ main = hspec $ do
 
 -- Thanks to Ying He for the following example text and proper
 -- tokenizations.
-weight_gain :: Text
-weight_gain = unwords [
-  "Independent of current body composition, IGF-I levels at 5 yr were ",
-  "significantly associated with rate of weight gain between 0-2 yr",
-  "(beta = 0.19; P < 0.0005), and children who showed postnatal",
-  "catch-up growth (i.e. those who showed gains in weight or length",
-  "between 0-2 yr by >0.67 SD score) had higher IGF-I levels than other",
-  "children (P = 0.02)."]
+--weightGain :: Text
+--weightGain = unwords [
+--  "Independent of current body composition, IGF-I levels at 5 yr were ",
+--  "significantly associated with rate of weight gain between 0-2 yr",
+--  "(beta = 0.19; P < 0.0005), and children who showed postnatal",
+--  "catch-up growth (i.e. those who showed gains in weight or length",
+--  "between 0-2 yr by >0.67 SD score) had higher IGF-I levels than other",
+--  "children (P = 0.02)."]
 
-weight_gain_tokens :: [Text]
-weight_gain_tokens = words $ unwords [
-  "Independent of current body composition , IGF - I levels at 5 yr were",
-  "significantly associated with rate of weight gain between 0 - 2 yr ( beta",
-  "= 0.19 ; P < 0.0005 ) , and children who showed postnatal catch - up",
-  "growth ( i.e . those who showed gains in weight or length between 0 - 2 yr",
-  "by > 0.67 SD score ) had higher IGF - I levels than other children",
-  "( P = 0.02 ) ."] -- i.e. is wrong, but we're calling this close enough.
+--weightGainTokens :: [Text]
+--weightGainTokens = words $ unwords [
+--  "Independent of current body composition , IGF - I levels at 5 yr were",
+--  "significantly associated with rate of weight gain between 0 - 2 yr ( beta",
+--  "= 0.19 ; P < 0.0005 ) , and children who showed postnatal catch - up",
+--  "growth ( i.e . those who showed gains in weight or length between 0 - 2 yr",
+--  "by > 0.67 SD score ) had higher IGF - I levels than other children",
+--  "( P = 0.02 ) ."] -- i.e. is wrong, but we're calling this close enough.

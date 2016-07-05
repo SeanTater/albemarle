@@ -6,7 +6,8 @@ module NLP.Albemarle.Scrape (
 import ClassyPrelude
 import Data.ByteString (ByteString)
 import Data.Function ((&))
-import Control.Lens hiding (re) -- Regex needs this
+import Lens.Micro
+import Lens.Micro.TH
 import qualified Data.Text.ICU.Convert as Convert
 import qualified Data.ByteString as Bytes
 import qualified Data.Text as Text
@@ -15,12 +16,11 @@ import qualified Network.Curl.Info as Curl
 import Text.Regex.PCRE.Heavy
 
 -- A strict in-memory file of some content type we don't know
-declareLenses [d|
-  data Download = Download {
-    mime, enc :: Maybe Text,
-    payload :: ByteString
-  } deriving (Show, Eq)
-  |]
+data Download = Download {
+  _mime, _enc :: Maybe Text,
+  _payload :: ByteString
+} deriving (Show, Eq)
+makeLenses ''Download
 emptyDownload = Download Nothing Nothing ""
 
 -- | Download from a URL, and if possible, trying to straighten out the encoding
@@ -52,5 +52,3 @@ readAsText download = do
 
 --readAsHTML download = do
 --  return expression
-
---makeLenses ''Download

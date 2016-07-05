@@ -4,39 +4,46 @@
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE BangPatterns      #-}
 module NLP.Albemarle.LSA
-    ( batchLSA
-    , LSAModel(..)
-    , lsa
+    (-- * Creating a model
+    lsa
+    -- * Managing terms
     , rebase
-    , termvectors
-    , topicweights
+    -- * Managing topics
+    , pad
+    , trim
+    -- * Internal methods (may be subject to change)
     , SVD.sparsify
     , SVD.sparseSvd
+    , batchLSA
+    -- * Types (may be subject to change)
+    , LSAModel(..)
+    , termvectors
+    , topicweights
     ) where
 import NLP.Albemarle
 import NLP.Albemarle.Dict (Dict)
 import qualified NLP.Albemarle.Dict as Dict
-import Data.List (cycle)
 import ClassyPrelude hiding (Vector)
 import qualified Data.Vector.Generic as Vec
 import qualified Data.Vector.Unboxed as UVec
 import qualified Data.Vector.Storable as SVec
-import Foreign.C.Types
 import qualified Data.HashMap.Strict as HashMap
-import Numeric.LinearAlgebra (Vector, Matrix, tr, diag, (|||), (===)) -- transpose
+import Numeric.LinearAlgebra (Vector, Matrix, tr, diag, (|||), (===))
 import qualified Numeric.LinearAlgebra as HMatrix
 import qualified Numeric.LinearAlgebra.Devel as HMatrix
 import qualified Numeric.LinearAlgebra.SVD.SVDLIBC as SVD
-import qualified Data.Text.Format as Format
 import qualified System.IO.Streams as Streams
 import qualified Criterion.Main
 import System.IO.Streams (Generator, InputStream, OutputStream)
-import Control.Lens.TH
-import Control.Lens.Operators
+import Lens.Micro.TH
+import Lens.Micro
+import Data.Tuple
 
+-- | An LSA model (The singular values and right singular vectors of truncated
+--   SVD on a term-document matrix, where documents are rows and terms columns)
 data LSAModel = LSAModel {
-  _topicweights :: !(HMatrix.Vector Double),
-  _termvectors :: !(Matrix Double)
+  _topicweights :: !(HMatrix.Vector Double), -- ^ Topic weights
+  _termvectors :: !(Matrix Double) -- ^ Rows are topics, columns are terms
 } deriving (Show, Eq)
 makeLenses ''LSAModel
 
@@ -47,29 +54,46 @@ instance Monoid LSAModel where
   mappend left right
     | left == mempty = right
     | right == mempty = left
-    | otherwise = LSAModel s v
+    | otherwise = trim target_len $ pad target_len $ LSAModel s v
     where
-      v = HMatrix.takeRows target_len v'
-      s = Vec.take target_len s'
-      target_len = Vec.length $ left^.topicweights
-      (s', v') = HMatrix.rightSV
-        $ traceShow ("In mappend, after = ", HMatrix.size c) c
-      c = traceShow ("In mappend, left = ", HMatrix.size (left^.termvectors),
-        " right = ", HMatrix.size (right^.termvectors)) (combine left === combine right)
+      target_len = max (topicCount left) (topicCount right)
+      (s, v) = HMatrix.rightSV $ combine left === combine right
 instance Semigroup LSAModel where
   (<>) = mappend
 
+-- | Truncate an LSAModel to a specific number of topics, if there are too many
+trim :: Int -- ^ The maximum number of topics the model should have (inclusive)
+     -> LSAModel -> LSAModel
+trim count model
+  | topicCount model <= count = model
+  | otherwise = LSAModel
+    (Vec.take count $ model^.topicweights)
+    (HMatrix.takeRows count $ model^.termvectors)
+
+-- | Pad an LSAModel with extra empty topics of there are too few
+pad :: Int -- ^ The minimum number of topics the model should have (inclusive)
+    -> LSAModel -> LSAModel
+pad count model
+  | topicCount model >= count = model
+  | otherwise = let
+    (height, width) = HMatrix.size $ model^.termvectors
+    missing = count - height
+    in LSAModel
+      (model^.topicweights <> Vec.replicate missing 0)
+      (model^.termvectors === HMatrix.konst 0 (missing, width))
+
+-- | Multiply the vectors and values of an SVD to make one matrix
 combine :: LSAModel -> Matrix Double
 combine model = diag (model^.topicweights) <> (model^.termvectors)
 
 sparseToCSR :: SparseMatrix -> HMatrix.CSR
 sparseToCSR (SparseMatrix width vecs) =
   let
-    docs = Vec.fromList <$> (\(SparseVector len wds) -> wds) <$> vecs
+    docs = (Vec.fromList . (\ (SparseVector len wds) -> wds) <$> vecs)
     convI = Vec.map fromIntegral . Vec.convert
-    counts = Vec.map snd <$> docs :: [UVec.Vector Double]
-    concatcounts = Vec.concat counts :: UVec.Vector Double
-    storcounts = Vec.convert concatcounts :: SVec.Vector Double
+    counts = Vec.map snd <$> docs         :: [UVec.Vector Double]
+    concatcounts = Vec.concat counts      ::  UVec.Vector Double
+    storcounts = Vec.convert concatcounts ::  SVec.Vector Double
   in HMatrix.CSR {
     HMatrix.csrVals = storcounts,
     HMatrix.csrCols = convI
@@ -92,8 +116,16 @@ sparseToCSR (SparseMatrix width vecs) =
 lsa :: Int -- ^ Number of vectors/dimensions in the new space
     -> SparseMatrix -- ^ Sparse representation of the term-document matrix
     -> LSAModel -- ^ A dense representation of the term-topic matrix
-lsa top_vectors termdoc = traceShow ("Right after SVD", HMatrix.size vt) $ LSAModel s vt
-  where (u, s, vt) = SVD.sparseSvd top_vectors $ sparseToCSR termdoc
+lsa top_vectors termdoc =
+  -- This astounds me, but the number of singular values may not match the
+  -- number of singular vectors. We have to balance before padding.
+  pad top_vectors $ case compare missing_values 0 of
+    LT -> LSAModel (Vec.take top_vectors s) vt
+    EQ -> LSAModel s vt
+    GT -> LSAModel (s <> Vec.replicate missing_values 0) vt
+  where
+    (u, s, vt) = SVD.sparseSvd top_vectors $ sparseToCSR termdoc
+    missing_values = fst (HMatrix.size vt) - Vec.length s
 
 -- | Rebase an LSA model made with one Dict to one made with another Dict.
 --
@@ -104,15 +136,14 @@ lsa top_vectors termdoc = traceShow ("Right after SVD", HMatrix.size vt) $ LSAMo
 rebase :: Dict -> Dict -> LSAModel -> LSAModel
 rebase d1 d2 model
   | model == mempty = mempty
-  | otherwise = let
-  (size, support, indices) = traceShowId $ (
-    (Dict.size d1, Dict.size d2),
-    ("During Rebase", HMatrix.size $ model^.termvectors, Vec.length $ model^.topicweights),
-    Dict.select d1 d2 )
-  in LSAModel {
-    _termvectors = (HMatrix.¿) (model^.termvectors) indices,
+  | otherwise = LSAModel {
+    _termvectors = (HMatrix.¿) (model^.termvectors) $ Dict.select d1 d2,
     _topicweights = model^.topicweights
   }
+
+-- | Get the number of topics in a model
+topicCount :: LSAModel -> Int
+topicCount model = Vec.length $ model^.topicweights
 
 
 -- | SVD with some transposes, for convenience and speed

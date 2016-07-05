@@ -1,4 +1,22 @@
-{-# LANGUAGE OverloadedStrings, NoImplicitPrelude, TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE BangPatterns      #-}
+{-| A simple, full dictionary, which maintains:
+
+(1) A bijection of words and IDs (one to one);
+(2) A count of every word
+(3) Methods for keeping memory use under control using filtering
+
+ID 0 is special in this implementation and represents the count and response of
+the unknown word. This has some advantages:
+
+(1) Remapping words after they are filtered is easy: map them to unknown, aka 0
+(2) The lookup function is total (no undefined or Nothing to handle)
+(3) It serves as a nice default (it looks like background noise)
+(4) If you don't want that information, use (Vector.drop 1 vec) to eliminate it,
+    or use ((Vector.//) vec [(0,0)]) to 0 it out.
+|-}
 module NLP.Albemarle.Dict
     ( -- * Using Dictionaries
     Dict(..)
@@ -28,9 +46,6 @@ module NLP.Albemarle.Dict
 import ClassyPrelude hiding (union)
 import Control.Monad.ST
 import NLP.Albemarle
-import qualified Data.HashSet as HashSet
-import qualified Data.HashMap.Strict as HashMap
-import qualified System.IO.Streams as Streams
 import qualified Data.Vector.Instances
 import qualified Data.Vector.Generic as Vec
 import Data.Vector.Generic ((//))
@@ -38,7 +53,6 @@ import qualified Data.Vector as BVec
 import qualified Data.Vector.Unboxed as UVec
 import qualified Data.Vector.Algorithms.Search as VSearch
 import qualified Data.Vector.Algorithms.Intro as VSort
-import qualified Numeric.LinearAlgebra.Data as HMatrix
 import qualified Data.List.Ordered as OList
 
 
@@ -52,33 +66,18 @@ import System.IO.Streams (InputStream, OutputStream)
 import qualified System.IO.Streams as Streams
 import Numeric.LinearAlgebra (Matrix)
 import qualified Numeric.LinearAlgebra as HMatrix
-import Control.Lens.Operators
-import Control.Lens.TH
+import qualified Numeric.LinearAlgebra.Data as HMatrix
+import Lens.Micro.TH
+import Lens.Micro
 import Data.Tuple (swap)
-
-{-| A simple, full dictionary, which maintains:
-
-(1) A bijection of words and IDs (one to one);
-(2) A count of every word
-(3) Methods for keeping memory use under control using filtering
-
-ID 0 is special in this implementation and represents the count and response of
-the unknown word. This has some advantages:
-
-(1) Remapping words after they are filtered is easy: map them to unknown, aka 0
-(2) The lookup function is total (no undefined or Nothing to handle)
-(3) It serves as a nice default (it looks like background noise)
-(4) If you don't want that information, use (Vector.drop 1 vec) to eliminate it,
-    or use ((Vector.//) vec [(0,0)]) to 0 it out.
-|-}
 
 newtype Histogram = Histogram {
   _hist :: HashMap Text Int
 } deriving (Show, Eq)
 type Ids = BVec.Vector Text
 data Dict = Dict {
-  _counts :: Histogram,
-  _ids :: Ids
+  _counts :: !Histogram,
+  _ids :: !Ids
 } deriving (Show, Eq)
 
 makeLenses ''Dict
@@ -96,29 +95,28 @@ instance Monoid Dict where
 instance Semigroup Dict where
   (<>) = mappend
 
-sortNewV v = Vec.modify (VSort.sort) $ Vec.fromList v
+sortNewV v = Vec.modify VSort.sort $ Vec.fromList v
 
 -- | Filter the dictionary: remove stopwords and hepaxes.
 filterDict :: Int   -- ^ the minimum word occurences (to remove rare words)
   -> Float  -- ^ the maximum proportion (0,1] of a word (to remove stopwords)
   -> Int    -- ^ the maximum number of unique words total (to cap memory)
   -> Dict   -- ^ the original dictionary
-  -> Dict   -- ^ new dictionary, and a Remap from original to new
-filterDict min_thresh max_fraction max_words dict =
-  let max_thresh = floor $ max_fraction * (
-        fromIntegral
-        $ sum
-        $ HashMap.elems
-        $ dict^.counts.hist )
-      new_counts =
-        HashMap.fromList
-        -- This makes sure we preserve the unknown if we can, otherwise 0.
-        $ cons ("", HashMap.lookupDefault 0 "" $ dict^.counts.hist)
-        $ take max_words
-        $ sortOn (negate.snd)
-        $ HashMap.toList
-        $ HashMap.filter (\v -> min_thresh<=v && v<=max_thresh)
-        $ dict^.counts.hist
+  -> Dict   -- ^ new dictionary
+filterDict min_thresh max_fraction max_words dict = let
+  max_thresh = floor $ max_fraction * fromIntegral
+    ( sum
+    $ HashMap.elems
+    $ dict^.counts.hist )
+  new_counts =
+    HashMap.fromList
+    -- This makes sure we preserve the unknown if we can, otherwise 0.
+    $ cons ("", HashMap.lookupDefault 0 "" $ dict^.counts.hist)
+    $ take max_words
+    $ sortOn (negate.snd)
+    $ HashMap.toList
+    $ HashMap.filter (\v -> min_thresh<=v && v<=max_thresh)
+    $ dict^.counts.hist
   in Dict {
     _counts = Histogram new_counts,
     _ids = sortNewV $ HashMap.keys new_counts
@@ -131,7 +129,7 @@ filterDict min_thresh max_fraction max_words dict =
 --   may not mean it doesn't exist in the corpus; it might have been trimmed
 --   because it was too common, too rare, or there wasn't enough memory
 countOf :: Dict -> Text -> Int
-countOf dict word = maybe 0 id $ HashMap.lookup word $ dict^.counts.hist
+countOf dict word = fromMaybe 0 $ HashMap.lookup word $ dict^.counts.hist
 
 -- | Get the ID of a word from a Dictionary. Unknown words get a 0 (by design).
 idOf :: Dict -> Text -> Int
@@ -149,7 +147,7 @@ idOf Dict{_ids=vec} word = runST $ do
 asSparseVector :: Dict -> [Text] -> SparseVector
 asSparseVector dict = SparseVector (Vec.length $ dict^.ids)
   . sort -- Strictly speaking this isn't always necessary but it is for LSA
-  . cons (0,0.0) -- This shows we count from 0 (it just happens to be 0.0 there)
+  -- . cons (0,0.0) -- This shows we count from 0 (it just happens to be 0.0 there)
   . HashMap.toList
   . HashMap.fromListWith (+)
   . fmap (\w-> (idOf dict w, 1.0))
@@ -160,9 +158,23 @@ asSparseVector dict = SparseVector (Vec.length $ dict^.ids)
 --   mind that the length is determined at runtime so pay attention that you do
 --   not use matrices from different dictionaries together lest you cause
 --   runtime errors.
+--
+--   This is equavalent to but faster than repeated SparseVectors because it
+--   builds a Hashmap first [O(v)] and then uses that [O(1)/lookup] rather than
+--   doing no preparation [O(0)] and repeatedly using binary search [O(log v)]
+--   Usually this is a 10-fold or better speedup.
 asSparseMatrix :: Dict -> [[Text]] -> SparseMatrix
-asSparseMatrix dict = SparseMatrix (Vec.length $ dict^.ids)
-  . fmap (asSparseVector dict)
+asSparseMatrix dict = let
+  toid word = HashMap.lookupDefault 0 word           -- this evalues many times
+    $ HashMap.fromList $ zip (v2l $ dict^.ids) [0..] -- this evaluates once
+  tovec = SparseVector (Vec.length $ dict^.ids)
+    . sort -- Strictly speaking this isn't always necessary but it is for LSA
+    -- . cons (0,0.0) -- This shows we count from 0 (it just happens to be 0.0 there)
+    . HashMap.toList
+    . HashMap.fromListWith (+)
+    . fmap (\w-> (toid w, 1.0))
+  in SparseMatrix (Vec.length $ dict^.ids)
+    . fmap tovec
 
 -- | Make a dense vector representing one document using this dict.
 --
@@ -179,12 +191,12 @@ asDenseVector dict =
 --   (also consider the [[Text]] -> Dictionary alternatives, they may be faster)
 dictify :: [Text] -> Dict
 dictify wds = Dict {
-  _counts = Histogram cts,
-  _ids = sortNewV $ HashMap.keys cts
-} where
+    _counts = Histogram cts,
+    _ids = sortNewV $ HashMap.keys cts
+  } where
     cts = HashMap.fromListWith (+)
-          $ cons ("", 0) -- This is to preserve the 0-is-nothing property
-          $ (\x -> (x, 1)) <$> wds
+      $ cons ("", 0) -- This is to preserve the 0-is-nothing property
+      $ (\x -> (x, 1)) <$> wds
 
 -- | Create a dictionary from many documents, where every instance of every word
 --   counts. (As opposed to dictifyFirstWords.) Might be faster than FirstWords.
@@ -204,7 +216,7 @@ size dict = HashMap.size $ dict^.counts.hist
 support :: Dict -> Int
 support dict = HashMap.foldl' (+) 0 $ dict^.counts.hist
 
--- Just for internal use
+-- Just for internal use. It's polymorphic, so don't use the eta reduction
 v2l a = Vec.toList a
 l2v a = Vec.fromList a
 
@@ -264,8 +276,7 @@ union :: Dict -> Dict -> Dict
 union left right = Dict {
     _counts = left^.counts <> right^.counts,
     _ids = Vec.fromList
-          $ OList.nub
-          $ Vec.toList
-          $ Vec.modify (VSort.sort)
-          $ (left^.ids <> right^.ids)
+      $ OList.nub
+      $ Vec.toList
+      $ Vec.modify VSort.sort (left^.ids <> right^.ids)
   }
