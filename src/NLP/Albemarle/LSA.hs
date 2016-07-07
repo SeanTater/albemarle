@@ -33,7 +33,6 @@ import qualified Numeric.LinearAlgebra as HMatrix
 import qualified Numeric.LinearAlgebra.Devel as HMatrix
 import qualified Numeric.LinearAlgebra.SVD.SVDLIBC as SVD
 import qualified System.IO.Streams as Streams
-import qualified Criterion.Main
 import System.IO.Streams (Generator, InputStream, OutputStream)
 import Lens.Micro.TH
 import Lens.Micro

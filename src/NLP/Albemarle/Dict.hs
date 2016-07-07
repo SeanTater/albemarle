@@ -18,31 +18,31 @@ the unknown word. This has some advantages:
     or use ((Vector.//) vec [(0,0)]) to 0 it out.
 |-}
 module NLP.Albemarle.Dict
-    ( -- * Using Dictionaries
-    Dict(..)
-    , counts
-    , ids
-    , hist
-    , Histogram(..)
-    , countOf
-    , idOf
-    , select
-    , selectMatrix
-    , shift
-    , size
-    , asSparseMatrix
-    , asSparseVector
-    , asDenseVector
+  ( -- * Using Dictionaries
+  Dict(..)
+  , counts
+  , ids
+  , hist
+  , Histogram(..)
+  , countOf
+  , idOf
+  , select
+  , selectMatrix
+  , shift
+  , size
+  , asSparseMatrix
+  , asSparseVector
+  , asDenseVector
 
-    -- * Creating Dictionaries
-    , dictify
-    , dictifyAllWords
-    , dictifyFirstWords
+  -- * Creating Dictionaries
+  , dictify
+  , dictifyAllWords
+  , dictifyFirstWords
 
-    -- * Modifying Dictionaries
-    , filterDict
-    , union
-    ) where
+  -- * Modifying Dictionaries
+  , filterDict
+  , union
+  ) where
 import ClassyPrelude hiding (union)
 import Control.Monad.ST
 import NLP.Albemarle
