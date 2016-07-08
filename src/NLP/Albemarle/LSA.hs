@@ -48,6 +48,8 @@ makeLenses ''LSAModel
 
 -- This instance may be a fib. I'm not sure this is actually associative.
 -- Even if it is, I imagine there are practical numerical stability concerns.
+-- TODO: In particular, I think we need to weight the left and weight according
+-- to how many documents they represent.
 instance Monoid LSAModel where
   mempty = LSAModel mempty mempty
   mappend left right

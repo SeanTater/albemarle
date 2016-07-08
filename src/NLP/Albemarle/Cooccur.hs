@@ -4,10 +4,16 @@
 {-# LANGUAGE FlexibleInstances #-}
 module NLP.Albemarle.Cooccur
   ( -- * Sliding Window
-    decayingSkips,
+    geometricSkips,
+    harmonicSkips,
     packIDs,
     unpackIDs,
-    cooccurify
+    cooccurify,
+    wordSlice,
+    frequency,
+    wordFrequency,
+    probability,
+    predict
   ) where
 import Lens.Micro
 import Lens.Micro.TH
@@ -19,16 +25,28 @@ import Debug.Trace
 type Cooccur = IntMap.IntMap Double
 
 -- | Windowing function for skip-grams
-decayingSkips :: Double  -- ^ Exponential decay with distance
+geometricSkips :: Double  -- ^ Exponential decay with distance
   -> Int     -- ^ Window radius (actual size is 2*radius + 1)
-  -> [a]     -- ^ Words to use a recent history (or use [])
   -> [a]     -- ^ Document
   -> [(a, a, Double)]  -- ^ (Source, target, weight) triple
-decayingSkips dropoff radius window [] = []
-decayingSkips dropoff radius window (s:ss) =
-     (zip3 (repeat s) window $ take radius $ iterate (dropoff*) 1)
-  ++ (zip3 (repeat s) ss     $ take radius $ iterate (dropoff*) 1)
-  ++ decayingSkips dropoff radius (s : fst (splitAt radius window)) ss
+geometricSkips dropoff radius [] = []
+geometricSkips dropoff radius (s:ss) =
+  (concatMap (\(t, w) -> [(s, t, w), (t, s, w)])
+  $ zip ss
+  $ take radius
+  $ iterate (dropoff*) 1)
+  ++ geometricSkips dropoff radius ss
+
+-- | Windowing function for skip-grams
+harmonicSkips :: Int     -- ^ Window radius (actual size is 2*radius + 1)
+  -> [a]     -- ^ Document
+  -> [(a, a, Double)]  -- ^ (Source, target, weight) triple
+harmonicSkips radius [] = []
+harmonicSkips radius (s:ss) =
+  (concatMap (\(t, w) -> [(s, t, w), (t, s, w)])
+  $ zip ss
+  $ fmap (1/) [1..fromIntegral radius])
+  ++ harmonicSkips radius ss
 
 -- | This is dangerous but great for Intmaps: convert two 32 bit integers into
 --   a single packed 64 bit integer. But Intmaps can't guarantee 64 bits, so
@@ -45,19 +63,24 @@ unpackIDs a = (a `shiftR` 32, a .&. 0x00000000FFFFFFFF)
 -- | Make a word-word cooccurance matrix out of a series of weighted
 --   cooccurances
 cooccurify :: [(Int, Int, Double)] -> Cooccur
-cooccurify = IntMap.fromListWith (+) . map (\(s, t, w) -> (packIDs s t, w))
+cooccurify = IntMap.map deemph
+  . IntMap.fromListWith (+)
+  . fmap (\(s, t, w) -> (packIDs s t, w))
 
 -- | Get all of the frequencies associated with a source word
 wordSlice :: Int -> Cooccur -> Cooccur
 wordSlice a = let
-  start = packIDs a 0 -- One before the beginning: split is exclusive
-  end = packIDs (a+1) 0 - 1
-  split a c = let
-    (x, y, z) = IntMap.splitLookup a c
-    reconstruct m = maybe m (\v -> IntMap.insert a v m) y
-    in (reconstruct x, reconstruct z)
+  start = packIDs a 0 -- Will be inclusive
+  end = packIDs (a+1) 0 -- Will be exclusive
+  split target c = let
+    (left, mayv, right) = IntMap.splitLookup target c
+    in (maybe left (\v -> IntMap.insert target v left) mayv, right)
   in snd . split start -- after the beginning
     . fst . split end -- before the end
+
+-- | Deemphasize frequent words
+deemph :: Double -> Double
+deemph f = min 1 ((f/100) ** 0.75)
 
 frequency :: Int -> Int -> Cooccur -> Double
 frequency a b = fromMaybe 0 . IntMap.lookup (packIDs a b)
@@ -75,3 +98,5 @@ predict wd cooccur = let
   normalize = wordFrequency wd cooccur
   in fmap (\(p, f) -> (snd $ unpackIDs p, f/normalize))
     $ IntMap.toList $ wordSlice wd cooccur
+
+--fitness :: HMatrix.Matrix Double ->
