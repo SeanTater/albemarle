@@ -31,11 +31,12 @@ geometricSkips :: Double  -- ^ Exponential decay with distance
   -> [(a, a, Double)]  -- ^ (Source, target, weight) triple
 geometricSkips dropoff radius [] = []
 geometricSkips dropoff radius (s:ss) =
+  -- Tack on source and get two tuples each, because it is symmetric
   (concatMap (\(t, w) -> [(s, t, w), (t, s, w)])
-  $ zip ss
-  $ take radius
-  $ iterate (dropoff*) 1)
-  ++ geometricSkips dropoff radius ss
+  $ zip ss -- Pair the weights with the upcoming words
+  $ take radius -- Limit to a horizon
+  $ iterate (dropoff*) 1) -- The decaying weights
+  ++ geometricSkips dropoff radius ss -- Repeat for the next word
 
 -- | Windowing function for skip-grams
 harmonicSkips :: Int     -- ^ Window radius (actual size is 2*radius + 1)
@@ -61,10 +62,9 @@ unpackIDs :: Int -> (Int, Int)
 unpackIDs a = (a `shiftR` 32, a .&. 0x00000000FFFFFFFF)
 
 -- | Make a word-word cooccurance matrix out of a series of weighted
---   cooccurances
+--   cooccurances (like harmonicSkips will make for you)
 cooccurify :: [(Int, Int, Double)] -> Cooccur
-cooccurify = IntMap.map deemph
-  . IntMap.fromListWith (+)
+cooccurify = IntMap.fromListWith (+)
   . fmap (\(s, t, w) -> (packIDs s t, w))
 
 -- | Get all of the frequencies associated with a source word
@@ -78,10 +78,8 @@ wordSlice a = let
   in snd . split start -- after the beginning
     . fst . split end -- before the end
 
--- | Deemphasize frequent words
-deemph :: Double -> Double
-deemph f = min 1 ((f/100) ** 0.75)
 
+-- | Get the frequency of a specific word pair.
 frequency :: Int -> Int -> Cooccur -> Double
 frequency a b = fromMaybe 0 . IntMap.lookup (packIDs a b)
 
@@ -98,5 +96,3 @@ predict wd cooccur = let
   normalize = wordFrequency wd cooccur
   in fmap (\(p, f) -> (snd $ unpackIDs p, f/normalize))
     $ IntMap.toList $ wordSlice wd cooccur
-
---fitness :: HMatrix.Matrix Double ->

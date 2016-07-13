@@ -18,6 +18,7 @@ import qualified NLP.Albemarle.Dict as Dict
 import NLP.Albemarle.LSA (termvectors, topicweights)
 import qualified NLP.Albemarle.LSA as LSA
 import qualified NLP.Albemarle.Test.Dict
+import qualified NLP.Albemarle.Test.GloVe
 import qualified NLP.Albemarle.Examples.Webpage
 import System.CPUTime
 import Text.Printf
@@ -36,6 +37,7 @@ main :: IO ()
 main = hspec $ do
   NLP.Albemarle.Examples.Webpage.test
   NLP.Albemarle.Test.Dict.test
+  NLP.Albemarle.Test.GloVe.test
 
   let sentences = words <$> [
         "Maybe not today. Maybe not tomorrow. But soon.",
@@ -104,10 +106,6 @@ main = hspec $ do
       HMatrix.size (lsavecs^.termvectors) `shouldBe` (2,22)
       -- It should use both topics
       HMatrix.size (lsavecs^.topicweights) `shouldBe` 2
-
-  --describe "Word2vec" $ do
-  --  it "Generates Skip-grams" $ do
-  --    False `shouldBe` True
 
 -- Thanks to Ying He for the following example text and proper
 -- tokenizations.

@@ -44,6 +44,7 @@ library
                      , pcre-heavy >= 1.0.0
                      , microlens >= 0.4.4
                      , microlens-th >= 0.4.0
+                     , microlens-mtl >= 0.1.8
                      , hmatrix-svdlibc >= 0.4.0
                      , data-ordlist >= 0.4.7
   default-language:    Haskell2010
