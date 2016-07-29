@@ -19,7 +19,9 @@ import NLP.Albemarle.LSA (termvectors, topicweights)
 import qualified NLP.Albemarle.LSA as LSA
 import qualified NLP.Albemarle.Test.Dict
 import qualified NLP.Albemarle.Test.GloVe
+import qualified NLP.Albemarle.Test.LanguageModelEntropy
 import qualified NLP.Albemarle.Examples.Webpage
+
 import System.CPUTime
 import Text.Printf
 import Data.Text.Encoding.Error (lenientDecode)
@@ -38,6 +40,7 @@ main = hspec $ do
   NLP.Albemarle.Examples.Webpage.test
   NLP.Albemarle.Test.Dict.test
   NLP.Albemarle.Test.GloVe.test
+  NLP.Albemarle.Test.LanguageModelEntropy.test
 
   let sentences = words <$> [
         "Maybe not today. Maybe not tomorrow. But soon.",

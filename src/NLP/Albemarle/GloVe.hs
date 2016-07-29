@@ -1,4 +1,13 @@
 {-# LANGUAGE BangPatterns #-}
+module NLP.Albemarle.GloVe (
+  ContextVector,
+  TrainingApproach,
+  adagrad,
+  deemph,
+  gradient,
+  randomModel,
+  train
+) where
 import Numeric.LinearAlgebra (Matrix, Vector, dot)
 import qualified Data.Vector.Storable as SVec
 import qualified Numeric.LinearAlgebra as HMatrix
@@ -13,12 +22,15 @@ deemph_alpha = 0.75 -- Cooccurance frequencies are raised to this power
 deemph_cap = 100 -- Cooccurance frequencies are clamped to [1..deemph_cap]
 learning_rate = 0.05 -- Adagrad learning rate: it's not super sensitive
 
+-- | One input or output context vector, as well as the sum of squared gradients
+--   for each dimension, as needed for adagrad
 data ContextVector = ContextVector {
-  _bias :: !Double,
-  _embedding :: !Vector Double,
-  _biasHist :: !Double,
-  _embeddingHist :: !Vector Double
+  _bias :: !Double, -- ^ Bias associated with the vector
+  _embedding :: !Vector Double, -- ^ The input or output vector
+  _biasHist :: !Double, -- ^ The bias's SSE (calling it history) - for adagrad
+  _embeddingHist :: !Vector Double -- ^ All other SSE's - for adagrad
 }
+-- | A function computing a training step. This is merely a synonym for clarity.
 type TrainingApproach = ContextVector -> ContextVector -> Double
   -> (ContextVector, ContextVector)
 makeLenses ''ContextVector
@@ -58,6 +70,8 @@ adagrad source target edgefrequency history = let
   in (repair source target source_grad target_grad,
       repair target source target_grad source_grad)
 
+-- | Train a model using a specific training approach, an existing model, and
+--   some training cooccurances.
 train :: IntMap ContextVector -- ^ The initial parameters
   -> TrainingApproach -- ^ The approach to training (like adagrad)
   -> [(Int, Int, Double)] -- ^ (Probably lazy) list of cooccurances
@@ -68,22 +82,10 @@ train trainer !params (s,t,v):insts = let
   (reps, rept) = trainer (get s) (get t) v
   in train trainer (IntMap.insert s reps $ IntMap.insert t rept params) insts
 
--- | Make a model out of random vectors
+-- | Make a model out of random vectors (for bootstrapping)
 randomModel :: Int -- | Number of words
   -> Int -- | Vector length
   -> IO (IntMap ContextVector) -- | Resulting map
 randomModel height width = do
   mat <- HMatrix.rand height width
   return $! IntMap.fromList $ zip [0..] $ HMatrix.toRows mat
-
-{-
--- This might be a good resource for a reference adagrad:
--- https://github.com/benbo/adagrad/blob/master/adagrad.py
-
--- scratch code follows
-import Numeric.LinearAlgebra (Matrix, Vector)
--- | A function generating gradients from a model and a minibatch
-type GradientEvaluator instance = Vector -- ^ The model
-  -> [instance] -- ^ Some (maybe not all of the) instances
-  -> Vector -- ^ Gradient with respect to each parameter
--}

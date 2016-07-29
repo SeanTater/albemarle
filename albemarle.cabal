@@ -30,7 +30,6 @@ library
                      , unordered-containers >= 0.2.7
                      , hashable >= 1.2.3
                      , classy-prelude
-                     , contravariant
                      , io-streams
                      , vector
                      , hmatrix
@@ -44,7 +43,6 @@ library
                      , pcre-heavy >= 1.0.0
                      , microlens >= 0.4.4
                      , microlens-th >= 0.4.0
-                     , microlens-mtl >= 0.1.8
                      , hmatrix-svdlibc >= 0.4.0
                      , data-ordlist >= 0.4.7
   default-language:    Haskell2010
@@ -71,6 +69,11 @@ test-suite albemarle-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             NLP/Albemarle/Spec.hs
+  other-modules:       NLP.Albemarle.Examples.Webpage
+                     , NLP.Albemarle.Test.Dict
+                     , NLP.Albemarle.Test.Fixture
+                     , NLP.Albemarle.Test.GloVe
+                     , NLP.Albemarle.Test.LanguageModelEntropy
   build-depends:       base
                      , albemarle
                      , hspec
@@ -81,7 +84,6 @@ test-suite albemarle-test
                      , io-streams
                      , vector
                      , hmatrix
-                     , lz4 >= 0.2.3.1
                      , bytestring
                      , text >= 1.2.2
                      , binary
