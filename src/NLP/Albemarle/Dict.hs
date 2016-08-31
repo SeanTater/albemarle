@@ -22,8 +22,6 @@ module NLP.Albemarle.Dict
   Dict(..)
   , counts
   , ids
-  , hist
-  , Histogram(..)
   , countOf
   , idOf
   , select
@@ -38,12 +36,12 @@ module NLP.Albemarle.Dict
   , dictify
   , dictifyAllWords
   , dictifyFirstWords
+  , dictifyDefault
 
   -- * Modifying Dictionaries
   , filterDict
-  , union
   ) where
-import ClassyPrelude hiding (union)
+import ClassyPrelude
 import Control.Monad.ST
 import NLP.Albemarle
 import qualified Data.Vector.Instances
@@ -70,28 +68,26 @@ import qualified Numeric.LinearAlgebra.Data as HMatrix
 import Lens.Micro.TH
 import Lens.Micro
 import Data.Tuple (swap)
+import Data.List.Split
 
-newtype Histogram = Histogram {
-  _hist :: HashMap Text Int
-} deriving (Show, Eq)
-type Ids = BVec.Vector Text
 data Dict = Dict {
-  _counts :: !Histogram,
-  _ids :: !Ids
+  _counts :: !(HashMap Text Int),
+  _ids :: !(BVec.Vector Text)
 } deriving (Show, Eq)
 
 makeLenses ''Dict
-makeLenses ''Histogram
-
-instance Monoid Histogram where
-  mempty = Histogram $ HashMap.singleton "" 0
-  mappend (Histogram l) (Histogram r) = Histogram $ HashMap.unionWith (+) l r
-instance Semigroup Histogram where
-  (<>) = mappend
 
 instance Monoid Dict where
   mempty = Dict {_counts=mempty, _ids=Vec.singleton ""}
-  mappend = union
+  -- | Union two Dicts (a synonym for mappend). Dict's of huge corpora can be a
+  --   memory hog, so consider using filterDict occasionally to manage that.
+  mappend left right = Dict {
+      _counts = HashMap.unionWith (+) (left^.counts) (right^.counts),
+      _ids = Vec.fromList
+        $ OList.nub
+        $ Vec.toList
+        $ Vec.modify VSort.sort (left^.ids <> right^.ids)
+    }
 instance Semigroup Dict where
   (<>) = mappend
 
@@ -104,21 +100,23 @@ filterDict :: Int   -- ^ the minimum word occurences (to remove rare words)
   -> Dict   -- ^ the original dictionary
   -> Dict   -- ^ new dictionary
 filterDict min_thresh max_fraction max_words dict = let
-  max_thresh = floor $ max_fraction * fromIntegral
-    ( sum
+  max_thresh = floor
+    $ (max_fraction *)
+    $ fromIntegral
+    $ sum
     $ HashMap.elems
-    $ dict^.counts.hist )
+    $ dict^.counts
   new_counts =
     HashMap.fromList
     -- This makes sure we preserve the unknown if we can, otherwise 0.
-    $ cons ("", HashMap.lookupDefault 0 "" $ dict^.counts.hist)
+    $ cons ("", HashMap.lookupDefault 0 "" $ dict^.counts)
     $ take max_words
     $ sortOn (negate.snd)
     $ HashMap.toList
     $ HashMap.filter (\v -> min_thresh<=v && v<=max_thresh)
-    $ dict^.counts.hist
+    $ dict^.counts
   in Dict {
-    _counts = Histogram new_counts,
+    _counts = new_counts,
     _ids = sortNewV $ HashMap.keys new_counts
   }
 
@@ -129,7 +127,7 @@ filterDict min_thresh max_fraction max_words dict = let
 --   may not mean it doesn't exist in the corpus; it might have been trimmed
 --   because it was too common, too rare, or there wasn't enough memory
 countOf :: Dict -> Text -> Int
-countOf dict word = fromMaybe 0 $ HashMap.lookup word $ dict^.counts.hist
+countOf dict word = fromMaybe 0 $ HashMap.lookup word $ dict^.counts
 
 -- | Get the ID of a word from a Dictionary. Unknown words get a 0 (by design).
 idOf :: Dict -> Text -> Int
@@ -190,13 +188,15 @@ asDenseVector dict =
 -- | O(n + v log v) Create a dictionary from a single document
 --   (also consider the [[Text]] -> Dictionary alternatives, they may be faster)
 dictify :: [Text] -> Dict
-dictify wds = Dict {
-    _counts = Histogram cts,
+dictify wds = let
+  cts = HashMap.fromListWith (+)
+    $ cons ("", 0) -- This is to preserve the 0-is-nothing property
+    $ (\x -> (x, 1)) <$> wds
+  in Dict {
+    _counts = cts,
     _ids = sortNewV $ HashMap.keys cts
-  } where
-    cts = HashMap.fromListWith (+)
-      $ cons ("", 0) -- This is to preserve the 0-is-nothing property
-      $ (\x -> (x, 1)) <$> wds
+  }
+
 
 -- | Create a dictionary from many documents, where every instance of every word
 --   counts. (As opposed to dictifyFirstWords.) Might be faster than FirstWords.
@@ -208,13 +208,22 @@ dictifyAllWords = dictify . mconcat
 dictifyFirstWords :: [[Text]] -> Dict
 dictifyFirstWords = dictifyAllWords . fmap (HashSet.toList . HashSet.fromList)
 
+-- | Use some sensible defaults for making large dictionaries:
+-- handle 10k documents at a time, remove word with <= 2 instances in 10k docs,
+-- remove words in >= 50% of documents, and limit to 1000000 unique words.
+dictifyDefault :: [[Text]] -> Dict
+dictifyDefault =
+  foldl' (\l r -> filterDict 2 0.5 1000000 $ l <> r) mempty
+  . fmap (dictifyAllWords)
+  . chunksOf 10000
+
 -- | O(1) Retrieve the number of unique words in the vocabulary
 size :: Dict -> Int
-size dict = HashMap.size $ dict^.counts.hist
+size dict = HashMap.size $ dict^.counts
 
 -- | O(v) Retrieve the total number of (non-unique) words processed
 support :: Dict -> Int
-support dict = HashMap.foldl' (+) 0 $ dict^.counts.hist
+support dict = HashMap.foldl' (+) 0 $ dict^.counts
 
 -- Just for internal use. It's polymorphic, so don't use the eta reduction
 v2l a = Vec.toList a
@@ -269,14 +278,3 @@ find' ox@((ix,x):xs) oy@((iy,y):ys) = case compare x y of
   LT -> find' xs oy
   EQ -> (ix, iy) : find' xs ys
   GT -> find' ox ys
-
--- | Union two Dicts (a synonym for mappend). Dict's of huge corpora can be a
---   memory hog, so consider using filterDict occasionally to manage that.
-union :: Dict -> Dict -> Dict
-union left right = Dict {
-    _counts = left^.counts <> right^.counts,
-    _ids = Vec.fromList
-      $ OList.nub
-      $ Vec.toList
-      $ Vec.modify VSort.sort (left^.ids <> right^.ids)
-  }

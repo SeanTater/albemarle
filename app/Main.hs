@@ -2,7 +2,7 @@
 module Main where
 import ClassyPrelude
 import qualified Numeric.LinearAlgebra as HMatrix
-import NLP.Albemarle.Dict (counts, ids, hist)
+import NLP.Albemarle.Dict (counts, ids)
 import qualified NLP.Albemarle.Dict as Dict
 import NLP.Albemarle.LSA (termvectors, topicweights)
 import qualified NLP.Albemarle.LSA as LSA
@@ -30,7 +30,7 @@ main = do
       in (d3, lsa3)) (mempty, mempty)
 
   -- It should use all 100 words allowed plus the unknown
-  print $ length (final_dict^.counts.hist)
+  print $ length (final_dict^.counts)
   -- It should have a full size LSA as well
   print $ HMatrix.size (model^.termvectors)
   -- Plus topic weights

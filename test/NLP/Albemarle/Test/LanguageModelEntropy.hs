@@ -11,6 +11,7 @@ import qualified Data.HashMap.Strict as HashMap
 import NLP.Albemarle.Test.Fixture as Fixture
 import NLP.Albemarle.Dict as Dict
 import Lens.Micro
+import Text.Printf
 
 test = describe "Language model predictive quality" $ let
     boolAsInt x = if x then 1 else 0
@@ -20,25 +21,24 @@ test = describe "Language model predictive quality" $ let
   in do
     it "Using only the most likely word" $ do
       fixture <- Fixture.generate
-      -- All hists have at least '', never empty
-      let (word, count) = maximumBy (comparing snd)
-            $ HashMap.toList (fixture^.dict.counts.hist)
-          (right, total) = over both getSum
-            $ foldMap' (\x -> (Sum x, Sum 1))
-            $ fmap (boolAsInt . (==word))
-            $ concat $ fixture^.docs
-      print $ ("Always choose only most common word: ", logprob (fi right / fi total))
+      -- All hists have at least '', never empty.
+      -- maximum is partial but not an issue here
+      let h = fixture^.dict.counts
+          top = maximum $ snd <$> HashMap.toList h
+          population = sum $ snd <$> HashMap.toList h
+      printf "Always choose only most common word: %.02f%% accuracy (no bits)\n"
+        $ (100 * (fi top / fi population) :: Double)
       True `shouldBe` True
 
     it "Using prior probabilities" $ do
       fixture <- Fixture.generate
       -- All hists have at least '', never empty
-      let h = fixture^.dict.counts.hist
+      let h = fixture^.dict.counts
           total_freq = sum $ map snd $ HashMap.toList h
           freq w = HashMap.lookupDefault 0 w h
           prob w = fi (freq w) / fi total_freq :: Double
           (bits, corpus_len) = over both getSum
             $ foldMap' (\x -> (Sum $ logprob $ prob x, Sum 1))
             $ concat $ fixture^.docs
-      print $ ("Priors: ", bits / corpus_len)
+      printf "Priors: %.02f bits/word\n" $ bits / corpus_len
       True `shouldBe` True

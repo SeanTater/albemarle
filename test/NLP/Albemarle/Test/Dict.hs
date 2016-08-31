@@ -5,7 +5,7 @@ import Data.Monoid
 import Data.Text (Text, words)
 import Data.Foldable
 import Test.Hspec
-import NLP.Albemarle.Dict (Dict, counts, ids, hist)
+import NLP.Albemarle.Dict (Dict, counts, ids)
 import qualified NLP.Albemarle.Dict as Dict
 
 test = describe "Monoid-style Dictionary" $ do

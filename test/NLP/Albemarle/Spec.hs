@@ -13,10 +13,11 @@ import qualified Data.Binary as Bin
 
 import NLP.Albemarle
 import qualified NLP.Albemarle.Tokens as Tokens
-import NLP.Albemarle.Dict (Dict, counts, ids, hist)
+import NLP.Albemarle.Dict (Dict, counts, ids)
 import qualified NLP.Albemarle.Dict as Dict
 import NLP.Albemarle.LSA (termvectors, topicweights)
 import qualified NLP.Albemarle.LSA as LSA
+import qualified NLP.Albemarle.Bench.Maps
 import qualified NLP.Albemarle.Test.Dict
 import qualified NLP.Albemarle.Test.GloVe
 import qualified NLP.Albemarle.Test.LanguageModelEntropy
@@ -93,7 +94,7 @@ main = hspec $ do
           in (d3, lsa3)) (mempty, mempty)
 
       -- It should use all 100 words allowed plus the unknown
-      HashMap.size (final_dict^.counts.hist) `shouldBe` 101
+      HashMap.size (final_dict^.counts) `shouldBe` 101
       -- It should have a full size LSA as well
       HMatrix.size (model^.termvectors) `shouldBe` (222, 101)
       -- Plus topic weights
