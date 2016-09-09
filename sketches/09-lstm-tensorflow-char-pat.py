@@ -16,22 +16,22 @@ import random
 import sqlite3
 
 # Parameters
-__training_iters = 250000
-__batch_size = 128
+__training_iters = 1000000
+__batch_size = 16
+__layers = 1
 display_step = 10
 accuracy_step = 100
-__cell_kind = rnn_cell.GRUCell
+__cell_kind = lambda t: rnn_cell.MultiRNNCell([rnn_cell.GRUCell(t)] * __layers)
+#__cell_kind = rnn_cell.GRUCell
 
 # Network Parameters
 #n_input = len(letters) # Unique letters, defined later
 #n_output = len(letters)
 # Patents have about 6300 chars/claim
 __n_steps = 200 # timesteps - longest sentence
-__n_hidden = 256 # hidden layer num of features
+__n_hidden = 512 # hidden layer num of features
 
-print('\n\t'.join(
-    ["Two layer GRU"]
-    + ["- {}:{}".format(k, v)
+print('\n\t'.join(["- {}:{}".format(k, v)
     for k, v in vars().items()
     if k.startswith("__") and not k.endswith("__")
 ]))
@@ -99,45 +99,59 @@ def split_last_axis(tensor):
     # Split to get a list of '__n_steps' tensors of shape (__batch_size, n_input)
     return tf.split(0, __n_steps, tensor)
 
-def RNN(tensor, lens, name, reuse):
+def RNN(inputs, lens, name, reuse):
     print ("Building network " + name)
-    with tf.variable_scope(name, reuse) as scope:
-        # Define weights
-        weights = {
-            'out': tf.Variable(tf.random_normal([__n_hidden, n_output]), name=name+"_weights")
-        }
-        biases = {
-            'out': tf.Variable(tf.random_normal([n_output]), name=name+"_biases")
-        }
+    # Define weights
+    weights = tf.Variable(tf.random_normal([__n_hidden, n_output]), name=name+"_weights")
+    biases = tf.Variable(tf.random_normal([n_output]), name=name+"_biases")
 
-        # Define a lstm cell with tensorflow
-        cell = __cell_kind(__n_hidden)
-        # Get lstm cell output
-        outputs, states = rnn.rnn(cell, tensor, sequence_length=lens, dtype=tf.float32, scope=scope)
-        print ("Done building network " + name)
-        # Linear activation, using rnn inner loop output for each char
-        return tf.batch_matmul(outputs, tf.tile(tf.expand_dims(weights['out'], 0), [__n_steps, 1, 1])) + biases['out']
+    # Define a lstm cell with tensorflow
+    outputs, states = rnn.dynamic_rnn(
+        __cell_kind(__n_hidden),
+        inputs,
+        sequence_length=lens,
+        dtype=tf.float32,
+        scope=name,
+        time_major=False)
+    assert outputs.get_shape() == (__batch_size, __n_steps, __n_hidden)
+    print ("Done building network " + name)
+
+    #
+    # All these asserts are actually documentation: they can't be out of date
+    #
+
+    outputs = tf.expand_dims(outputs, 2)
+    assert outputs.get_shape() == (__batch_size, __n_steps, 1, __n_hidden)
+
+    tiled_weights = tf.tile(tf.expand_dims(tf.expand_dims(weights, 0), 0), [__batch_size, __n_steps, 1, 1])
+    assert tiled_weights.get_shape() == (__batch_size, __n_steps, __n_hidden, n_output)
+    #assert tiled_weights.get_shape() == (1, 1, __n_hidden, n_output)
+    # Linear activation, using rnn inner loop output for each char
+    finals = tf.batch_matmul(outputs, tiled_weights) + biases
+    assert finals.get_shape() == (__batch_size, __n_steps, 1, n_output)
+    return tf.squeeze(finals)
 
 # tf Graph input
-pat_chars = tf.placeholder(tf.float32, [None, __n_steps, n_input])
-pat_chars_i = tf.placeholder(tf.int64, [None, __n_steps])
-pat_chars_t = tf.transpose(pat_chars_i, [1,0])
-pat_lens = tf.placeholder(tf.int32, [None])
+pat_chars = tf.placeholder(tf.float32, [__batch_size, __n_steps, n_input])
+pat_chars_i = tf.placeholder(tf.int64, [__batch_size, __n_steps])
+pat_lens = tf.placeholder(tf.int32, [__batch_size])
 
-pat_pred_0 = RNN(transform_block(pat_chars), pat_lens, 'pat0', None)
-pat_pred = RNN(split_last_axis(pat_pred_0), pat_lens, 'pat', None)
+pat_pred = RNN(pat_chars, pat_lens, 'pat', None)
 
-print (pat_pred.get_shape(), pat_chars_t.get_shape())
+print (pat_pred.get_shape(), pat_chars_i.get_shape())
+assert pat_pred.get_shape() == (__batch_size, __n_steps, n_output)
+assert pat_chars_i.get_shape() == (__batch_size, __n_steps)
+
 # Define loss and optimizer
 cost = tf.reduce_mean(
-    tf.nn.sparse_softmax_cross_entropy_with_logits(pat_pred[:__n_steps-1, :, :], pat_chars_t[1:, :])
+    tf.nn.sparse_softmax_cross_entropy_with_logits(pat_pred[:, :__n_steps-1, :], pat_chars_i[:, 1:])
     )
 optimizer = tf.train.AdamOptimizer().minimize(cost)
 
 # Evaluate model
-next_letter_pred = tf.argmax(pat_pred[:__n_steps-1, :, :], 2)
-correct_pred = tf.equal(next_letter_pred, pat_chars_t[1:, :])
-correct_pred_matters = tf.not_equal(pat_chars_t[1:, :], 0)
+next_letter_pred = tf.argmax(pat_pred[:, :__n_steps-1, :], 2)
+correct_pred = tf.equal(next_letter_pred, pat_chars_i[:, 1:])
+correct_pred_matters = tf.not_equal(pat_chars_i[:, 1:], 0)
 accuracy = (
     tf.reduce_sum(tf.cast(tf.logical_and(correct_pred, correct_pred_matters), tf.float32))
     /
