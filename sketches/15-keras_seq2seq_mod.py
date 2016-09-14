@@ -32,8 +32,8 @@ __block_size = 8
 __n_hidden = 256
 
 # This limits you to ASCII codes. You can use more if you want, it's just slower
-n_input = n_output = 64
-char_code_start = -64
+n_input = n_output = 128
+char_code_start = 0
 
 # Get claims. Pay attention to the memory layout. The vectors are shared.
 def get_book():
